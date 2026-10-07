@@ -199,10 +199,8 @@ const HJP = (() => {
       // Nothing stacked yet and energy at or under max: not jumping. Show how to start, but this
       // isn't a stacking step, so it sends no alerts.
       if (plan.stacked === 0 && L.energy <= L.maxEnergy) {
-        const start = `take your first Xanax and stop spending energy to start a ${plan.xanUse}-Xanax stack.`;
-        return S("idle", "Not stacking", L.drugLeft > 0
-          ? `When you're ready to jump: your drug cooldown ends in ${HJ.dur(L.drugLeft)}, then ${start}`
-          : `When you're ready to jump, ${start}`);
+        const start = `When you're ready to jump, take Xanax 1 of ${plan.xanUse} and stop spending energy.`;
+        return S("idle", "Not stacking", L.drugLeft > 0 ? `Drug cooldown ends in ${HJ.dur(L.drugLeft)}. ${start}` : start);
       }
       const n = plan.stacked + 1;
       const ad = ctx.addictStatus;

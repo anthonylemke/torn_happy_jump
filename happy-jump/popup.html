@@ -7,10 +7,8 @@
 </head>
 <body>
   <header class="top">
-    <div>
-      <h1>Happy jump</h1>
-      <p class="sub" id="who">Loading…</p>
-    </div>
+    <h1>Happy jump</h1>
+    <p class="sub" id="who">Loading…</p>
     <div class="top-actions">
       <button id="refresh" class="icon-btn" title="Refresh from Torn API" aria-label="Refresh">↻</button>
       <button id="openSettings" class="icon-btn" title="Settings" aria-label="Settings">⚙</button>
@@ -45,7 +43,7 @@
         <tbody id="itemRows"></tbody>
       </table>
       <p class="note warn" id="invNote" hidden></p>
-      <dl class="cells four">
+      <dl class="cells">
         <div><dt>Happy</dt><dd class="pink" id="planHappy"></dd></div>
         <div><dt>Energy</dt><dd class="amber" id="planEnergy"></dd></div>
         <div><dt>Train</dt><dd id="planStat"></dd></div>
@@ -55,11 +53,7 @@
     </section>
 
     <section class="card risk" id="risk">
-      <dl class="cells">
-        <div><dt>Addiction</dt><dd id="addPct">–</dd></div>
-        <div><dt>Safe Xanax left</dt><dd id="safeXan">–</dd></div>
-        <div><dt>OD risk, stack</dt><dd id="odStack">–</dd></div>
-      </dl>
+      <p class="cds">Addiction <b id="addPct">–</b> · Safe Xanax <b id="safeXan">–</b> · OD risk <b id="odStack">–</b></p>
       <p class="note" id="riskMsg"></p>
     </section>
 

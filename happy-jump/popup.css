@@ -15,17 +15,17 @@
 * { box-sizing: border-box; }
 html, body { background: var(--ink); }
 body {
-  margin: 0; width: 360px; padding: 0 12px 6px; color: var(--text);
-  font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  margin: 0; width: 360px; padding: 0 10px 6px; color: var(--text);
+  font: 12.5px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-variant-numeric: tabular-nums;
 }
 button { font: inherit; color: inherit; cursor: pointer; }
 button:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
 .pink { color: var(--pink); } .amber { color: var(--amber); }
 
-.top { display: flex; justify-content: space-between; align-items: center; padding: 6px 0 4px; }
-h1 { margin: 0; font-size: 17px; font-weight: 800; }
-.sub { margin: 0; color: var(--muted); font-size: 11px; }
+.top { display: flex; align-items: center; gap: 8px; padding: 6px 0 4px; }
+h1 { margin: 0; font-size: 16px; font-weight: 800; white-space: nowrap; }
+.sub { flex: 1; min-width: 0; margin: 0; color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .top-actions { display: flex; gap: 6px; }
 .icon-btn { width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); font-size: 14px; }
 .icon-btn:hover { border-color: var(--muted); }
@@ -37,23 +37,23 @@ h1 { margin: 0; font-size: 17px; font-weight: 800; }
 .error button { margin-top: 4px; background: none; border: 0; padding: 0; text-decoration: underline; }
 
 /* Current step */
-.phase { padding: 8px 10px; border-radius: 10px; background: var(--panel); border-left: 4px solid var(--muted); }
+.phase { padding: 7px 10px; border-radius: 10px; background: var(--panel); border-left: 4px solid var(--muted); }
 .phase[data-k="active"], .phase[data-k="ready"] { border-left-color: var(--pink); }
 .phase[data-k="waiting"] { border-left-color: var(--amber); }
 .phase[data-urgent="true"] { box-shadow: inset 0 0 0 1px var(--pink); }
 .phase h2 { margin: 0 0 2px; font-size: 15px; }
 .phase[data-k="active"] h2 { color: var(--pink); }
 .phase p { margin: 0; color: var(--soft); }
-.phase .tick { margin-top: 6px; color: var(--muted); font-size: 12px; }
+.phase .tick { margin-top: 4px; color: var(--muted); font-size: 12px; }
 .phase .tick strong { color: var(--text); }
 .phase-actions { margin-top: 8px; }
 .phase-actions:empty { display: none; }
 .btn { padding: 5px 12px; border-radius: 8px; border: 1px solid var(--pink); background: var(--pink); color: #2a0b19; font-size: 12px; font-weight: 600; }
 
-.card { margin-top: 6px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); }
+.card { margin-top: 6px; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--line); }
 
 /* Meters */
-.meter { margin-bottom: 6px; }
+.meter { margin-bottom: 5px; }
 .cds { margin: 0; font-size: 12px; color: var(--muted); }
 .cds b { color: var(--text); }
 .meter-head { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
@@ -65,24 +65,23 @@ h1 { margin: 0; font-size: 17px; font-weight: 800; }
 .bar b { position: absolute; top: -3px; width: 2px; height: 14px; background: var(--text); opacity: .6; }
 
 /* Small label/value cells */
-.cells { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 0; }
-.cells.four { grid-template-columns: 1fr 1fr 1.1fr 1.25fr; gap: 4px; }
-.cells.four div { padding: 5px 6px; }
-.cells div { background: var(--panel); border-radius: 8px; padding: 5px 8px; min-width: 0; }
+.cells { display: grid; grid-template-columns: 1fr 1fr 1.1fr 1.25fr; gap: 4px; margin: 0; }
+.cells div { background: var(--panel); border-radius: 8px; padding: 3px 6px; min-width: 0; }
 .cells dt { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cells dd { margin: 0; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.note { margin: 6px 0 0; font-size: 12px; color: var(--soft); }
+.note { margin: 4px 0 0; font-size: 12px; color: var(--soft); }
 .note:empty { display: none; }
 .note.warn { color: var(--amber); margin: 0 0 8px; }
 
 /* Item plan */
-.items { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+.items { width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 6px; }
 .items th { text-align: left; font-size: 11px; font-weight: 500; color: var(--muted); padding: 0 0 3px; border-bottom: 1px solid var(--line); }
-.items td { padding: 3px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
-/* Item name plus its note on one line, cut off with an ellipsis when long. */
-.items td:first-child { max-width: 0; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.items :is(th, td):nth-child(2), .items :is(th, td):nth-child(3) { width: 36px; text-align: center; }
+.items td { padding: 2px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+/* Fixed columns; the item name and its note share one line, cut off with an ellipsis when long. */
+.items :is(th, td):nth-child(2), .items :is(th, td):nth-child(3) { width: 34px; text-align: center; }
+.items th:nth-child(4) { width: 96px; }
+.items :is(th, td):first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .items td:last-child { text-align: right; white-space: nowrap; }
 .items small { margin-left: 6px; color: var(--muted); font-size: 11px; }
 .items .ok { color: var(--green); }
