@@ -1,13 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Torn Happy Jump Helper",
-  "version": "2.2.0",
+  "version": "2.4.0",
   "description": "Plans and tracks Torn happy jumps from your API data: Xanax stacking alerts, jump readiness, quarter-tick timer and gym gain estimates.",
   "permissions": [
     "storage",
     "alarms",
-    "notifications",
-    "sidePanel"
+    "notifications"
   ],
   "host_permissions": [
     "https://api.torn.com/*"
@@ -22,7 +21,7 @@
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     },
-    "default_title": "Open Happy Jump Helper"
+    "default_title": "Happy Jump Helper"
   },
   "options_page": "options.html",
   "icons": {
@@ -47,8 +46,5 @@
       ],
       "run_at": "document_idle"
     }
-  ],
-  "side_panel": {
-    "default_path": "popup.html"
-  }
+  ]
 }

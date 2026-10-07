@@ -39,86 +39,7 @@ $("save").onclick = async () => {
   const r = await chrome.runtime.sendMessage({ type: "refresh", force: true });
   $("saved").textContent = r && r.ok ? "Saved and updated." : `Saved, but the update failed: ${r ? r.error : "unknown error"}`;
   HJLog.info("settings", "Settings saved", { ...read(), apiKey: undefined });
-  /* ---------- Developer log ---------- */
-const LEVELS = { problems: ["error", "warn"], info: ["error", "warn", "info"] };
-let logEntries = [];
-
-async function loadDev() {
-  const st = await chrome.storage.local.get(["devLog", "invCatStyle", "inventory", "catalog", "keyInfo", "snapshot", "lastStageKey"]);
-  logEntries = st.devLog || [];
-  const styles = ["Energy Drink", "energy drink", "EnergyDrink", "energy_drink"];
-  const inv = st.inventory;
-  const rows = [
-    ["Extension version", chrome.runtime.getManifest().version],
-    ["Browser", navigator.userAgent.match(/(Edg|Chrome|Brave)\/[\d.]+/g)?.join(" ") || navigator.userAgent],
-    ["Inventory category spelling", Number.isInteger(st.invCatStyle) ? `"${styles[st.invCatStyle]}" (style #${st.invCatStyle})` : "Not found yet"],
-    ["Last inventory read", inv ? `${inv.ok ? "OK" : "Failed"}, ${inv.items.length} rows, ${new Date(inv.at).toLocaleTimeString()}${inv.error ? ` — ${inv.error}` : ""}${inv.partial && inv.partial.length ? ` — partial: ${inv.partial.join("; ")}` : ""}` : "Never"],
-    ["Item catalog", st.catalog ? `${Object.keys(st.catalog.items).length} usable items, ${new Date(st.catalog.at).toLocaleString()}` : "Not loaded"],
-    ["Key info", st.keyInfo ? (st.keyInfo.error || st.keyInfo.raw) : "Not checked"],
-    ["Last update", st.snapshot ? new Date(st.snapshot.at).toLocaleTimeString() : "Never"],
-    ["Current step", st.lastStageKey || "–"]
-  ];
-  $("diag").innerHTML = "";
-  for (const [k, v] of rows) {
-    const dt = document.createElement("dt"); dt.textContent = k;
-    const dd = document.createElement("dd"); dd.textContent = v;
-    $("diag").append(dt, dd);
-  }
-  renderLog();
-}
-
-function filtered() {
-  const f = $("logFilter").value;
-  return f === "all" ? logEntries : logEntries.filter(e => LEVELS[f].includes(e.lvl));
-}
-
-function renderLog() {
-  const list = filtered().slice().reverse();
-  const view = $("logView");
-  view.innerHTML = "";
-  if (!list.length) { view.textContent = "No entries yet."; return; }
-  for (const e of list) {
-    const line = document.createElement("div");
-    line.className = e.lvl;
-    line.textContent = HJLog.format(e);
-    view.appendChild(line);
-  }
-}
-
-function diagText() {
-  const lines = [...$("diag").querySelectorAll("dt")].map(dt => `${dt.textContent}: ${dt.nextElementSibling.textContent}`);
-  return `Happy Jump Helper diagnostics\n${lines.join("\n")}\n\nLog (oldest first):\n${filtered().map(HJLog.format).join("\n")}`;
-}
-
-$("logFilter").onchange = renderLog;
-$("logRefresh").onclick = loadDev;
-$("logCopy").onclick = async () => {
-  await navigator.clipboard.writeText(diagText());
-  $("logStatus").textContent = "Copied to clipboard.";
-};
-$("logDownload").onclick = () => {
-  const url = URL.createObjectURL(new Blob([diagText()], { type: "text/plain" }));
-  const a = Object.assign(document.createElement("a"), { href: url, download: `happy-jump-log-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.txt` });
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  $("logStatus").textContent = "Downloaded.";
-};
-$("logClear").onclick = async () => {
-  await chrome.storage.local.set({ devLog: [] });
-  HJLog.info("settings", "Log cleared");
-  $("logStatus").textContent = "Cleared.";
-  setTimeout(loadDev, 400);
-};
-$("devVerbose").onchange = async e => {
-  const { settings } = await HJ.getAll();
-  await chrome.storage.local.set({ settings: { ...settings, devVerbose: e.target.checked } });
-  HJLog.info("settings", `Verbose logging ${e.target.checked ? "on" : "off"}`);
-  $("logStatus").textContent = e.target.checked ? "Verbose logging on." : "Verbose logging off.";
-};
-chrome.storage.onChanged.addListener(ch => { if (ch.devLog && $("dev").open) loadDev(); });
-$("dev").addEventListener("toggle", () => { if ($("dev").open) loadDev(); });
-
-load();
+  load();
 };
 
 $("toggleKey").onclick = () => {
@@ -135,6 +56,7 @@ $("testKey").onclick = async () => {
   status.textContent = "Checking…";
   try {
     const r = await fetch(`https://api.torn.com/user/?selections=basic,bars,cooldowns,battlestats,gym,refills,perks&key=${encodeURIComponent(key)}&comment=HappyJumpHelper`);
+    if (!r.ok) throw new Error(`Torn API returned HTTP ${r.status}`);
     const j = await r.json();
     if (j.error) throw new Error(`Torn API error ${j.error.code}: ${j.error.error}`);
     status.textContent = `Key works for ${j.name} [${j.player_id}]. Save settings to start tracking.`;

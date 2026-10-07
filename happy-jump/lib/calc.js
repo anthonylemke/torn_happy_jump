@@ -12,7 +12,7 @@ const HJ = (() => {
   const DEFAULT_SETTINGS = {
     apiKey: "",
     xanaxCount: 4,
-    edvdCount: 5,
+    edvdCount: 4,
     useEcstasy: true,
     useRefill: true,
     extraEnergy: 0,
@@ -22,7 +22,6 @@ const HJ = (() => {
     gymBonusOverride: "",
     happyLossPerEnergy: 0.5,
     notifyDrug: true,
-    notifyBooster: true,
     showOverlay: true,
     odRatePct: 2,
     kickPct: 6,
@@ -136,13 +135,6 @@ const HJ = (() => {
     return Math.min(1000, settings.xanaxCount * 250);
   }
 
-  function plannedJump(snap, settings) {
-    const L = live(snap);
-    const happy = (L.maxHappy + settings.edvdCount * 2500) * (settings.useEcstasy ? 2 : 1);
-    const energy = stackTarget(settings) + (settings.useRefill ? L.maxEnergy : 0) + (+settings.extraEnergy || 0);
-    return { happy, energy, boosterNeededH: settings.edvdCount * 6 };
-  }
-
   /** Projections per stat for a given happy and energy; picks best or chosen stat. */
   function project(snap, gymsCache, settings, H, energy) {
     const L = live(snap);
@@ -165,36 +157,6 @@ const HJ = (() => {
     const q = 15 * 60 * 1000;
     return q - (now % q);
   }
-
-  function phase(snap, settings) {
-    const L = live(snap);
-    const target = stackTarget(settings);
-    const xansHeld = Math.max(0, Math.round((L.energy - Math.min(L.energy, L.maxEnergy)) / 250));
-    const boostSteps = `use ${settings.edvdCount} eDVDs${settings.useEcstasy ? ", take Ecstasy" : ""}${settings.useRefill ? ", use your energy refill" : ""}`;
-    if (L.happy > L.maxHappy) {
-      return { key: "active", title: "Jump is live — train now",
-        detail: "Happy is above your max and drops at the next quarter tick. Spend your energy in the gym before then." };
-    }
-    if (target > 0 && L.energy >= target - 25) {
-      if (L.drugLeft > 0) {
-        return { key: "waitEcstasy", title: "Stack complete",
-          detail: `Drug cooldown ends in ${dur(L.drugLeft)}. Then, right after a quarter tick: ${boostSteps}, and train.` };
-      }
-      return { key: "ready", title: "Ready to jump",
-        detail: `Right after the next quarter tick: ${boostSteps}, then train everything.` };
-    }
-    if (L.energy > L.maxEnergy) {
-      return { key: "stacking", title: `Stacking: ${L.energy} / ${target} energy`,
-        detail: L.drugLeft > 0
-          ? `Roughly ${xansHeld} Xanax over your max so far. Next one in ${dur(L.drugLeft)}. Don't spend energy.`
-          : "Drug cooldown is clear — take your next Xanax. Don't spend energy." };
-    }
-    return { key: "idle", title: "Not stacking yet",
-      detail: L.drugLeft > 0
-        ? `Drug cooldown ends in ${dur(L.drugLeft)}. Then take your first Xanax and stop spending energy.`
-        : `Take your first Xanax and stop spending energy to begin a ${settings.xanaxCount}-Xanax stack.` };
-  }
-
 
   /* ---------- Addiction & overdose ---------- */
   const DRUG_KEYS = ["cantaken", "exttaken", "kettaken", "lsdtaken", "opitaken", "pcptaken", "shrtaken", "spetaken", "victaken", "xantaken"];
@@ -287,7 +249,7 @@ const HJ = (() => {
   }
 
   return { STATS, DEFAULT_SETTINGS, gainPerTrain, simulate, parseGymPerks, gymInfo, multipliers, live,
-    stackTarget, plannedJump, project, msToQuarterTick, phase, dur, num, cap, getAll,
+    stackTarget, project, msToQuarterTick, dur, num, cap, getAll,
     readAddiction, odChance, lifetimeDrugs, perXanaxEstimate, addictionStatus };
 })();
 if (typeof self !== "undefined") self.HJ = HJ;

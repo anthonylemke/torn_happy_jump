@@ -89,10 +89,12 @@ window.addEventListener("unhandledrejection", e => HJLog.error("gym-panel", `Unh
     load();
   });
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") chrome.runtime.sendMessage({ type: "refresh" });
+    if (document.visibilityState === "visible" && chrome.runtime?.id) chrome.runtime.sendMessage({ type: "refresh" });
   });
   const seen = new Set();
-  setInterval(() => {
+  const timer = setInterval(() => {
+    // After the extension is reloaded or updated this script is orphaned; stop instead of throwing every second.
+    if (!chrome.runtime?.id) { clearInterval(timer); root.remove(); return; }
     try { render(); } catch (e) {
       if (!seen.has(e.message)) { seen.add(e.message); HJLog.error("gym-panel", `Render failed: ${e.message}`, (e.stack || "").split("\n").slice(0, 4).join(" | ")); }
     }

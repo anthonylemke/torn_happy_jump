@@ -9,6 +9,8 @@ const HJP = (() => {
     "ecstasy": { kind: "ecstasy" },
     "erotic dvd": { kind: "edvd", happy: 2500, boosterMin: EDVD_MIN }
   };
+  // Inventory category of each known item, for when the catalog isn't loaded.
+  const KNOWN_TYPE = { "xanax": "Drug", "ecstasy": "Drug", "erotic dvd": "Booster" };
 
   const toNum = s => Number(String(s).replace(/,/g, ""));
 
@@ -73,8 +75,12 @@ const HJP = (() => {
   function buildPlan({ snap, settings, inv, catalog, skips = {}, track = {} }) {
     const L = HJ.live(snap);
     const owned = ownedMap(inv, catalog);
-    const have = name => (owned ? owned[name] || 0 : null);
     const items = catalog ? Object.values(catalog.items) : [];
+    // Inventory categories that couldn't be read: their items are unknown (null), not zero.
+    const failedCats = (owned && inv.failedCats || []).map(c => c.toLowerCase());
+    const catKnown = cat => !failedCats.includes(cat.toLowerCase());
+    const typeOf = name => (items.find(i => i.name.toLowerCase() === name) || {}).type || KNOWN_TYPE[name] || "";
+    const have = name => (owned && catKnown(typeOf(name)) ? owned[name] || 0 : null);
     const priceOf = name => (items.find(i => i.name.toLowerCase() === name) || {}).value || 0;
     const money = snap.addict && snap.addict.money;
     const rows = [];
@@ -89,7 +95,7 @@ const HJP = (() => {
     const stackTarget = boosted ? L.energy : Math.min(1000, Math.max(L.energy, L.energy + xanUse * 250));
     rows.push({ key: "xanax", label: "Xanax", want: xanWant, have: xanHave, use: xanUse, short: xanShort,
       done: stacked, cost: xanShort * priceOf("xanax"), skipped: !!skips.xanax,
-      note: stacked ? `${stacked} already in your stack` : "" });
+      note: stacked ? `${stacked} in stack` : "" });
 
     // Booster room shared by eDVDs, candy and energy drinks
     let room = settings.boosterCapH * 60 - L.boosterLeft / 60;
@@ -103,7 +109,7 @@ const HJP = (() => {
     if (dvdUse) { boosterUses.push({ name: "Erotic DVD", n: dvdUse }); room -= dvdUse * EDVD_MIN; happyGain += dvdUse * 2500; }
     rows.push({ key: "edvd", label: "eDVDs", want: settings.edvdCount, have: dvdHave, use: dvdUse, short: dvdShort,
       cost: dvdShort * priceOf("erotic dvd"), skipped: !!skips.edvd,
-      note: dvdFit < settings.edvdCount && !boosted ? `Booster room fits ${dvdFit}` : "" });
+      note: dvdFit < settings.edvdCount && !boosted ? `room for ${dvdFit}` : "" });
 
     const fill = (kind, enabled) => {
       if (!enabled || !owned || boosted) return [];
@@ -126,8 +132,8 @@ const HJP = (() => {
     boosterUses.push(...candy, ...drinks);
     if (candy.length || (settings.useCandy && owned && !boosted)) {
       const candyOwned = items.filter(i => i.kind === "candy").reduce((a, i) => a + (owned[i.name.toLowerCase()] || 0), 0);
-      rows.push({ key: "candy", label: "Candy", use: candy.reduce((a, c) => a + c.n, 0), have: candyOwned, short: 0, skipped: !!skips.candy,
-        note: candy.length ? candy.map(c => `${c.n}× ${c.name}`).join(", ") : "None owned or no booster room" });
+      rows.push({ key: "candy", label: "Candy", use: candy.reduce((a, c) => a + c.n, 0), have: catKnown("Candy") ? candyOwned : null, short: 0, skipped: !!skips.candy,
+        note: candy.length ? candy.map(c => `${c.n}× ${c.name}`).join(", ") : "none usable" });
     }
     if (drinks.length) {
       rows.push({ key: "drinks", label: "Energy drinks", use: drinks.reduce((a, c) => a + c.n, 0),
@@ -148,8 +154,8 @@ const HJP = (() => {
     const refillDone = boosted && L.refillUsed && !track.refillUsedAtBoost;
     let refillUse = settings.useRefill && !skips.refill && (refillDone || (!L.refillUsed && (points === null || points >= settings.refillPointCost)));
     let refillNote = "";
-    if (settings.useRefill && !refillDone && L.refillUsed) refillNote = "Already used today";
-    else if (settings.useRefill && points !== null && points < settings.refillPointCost) refillNote = `Needs ${settings.refillPointCost} points, you have ${points}`;
+    if (settings.useRefill && !refillDone && L.refillUsed) refillNote = "used today";
+    else if (settings.useRefill && points !== null && points < settings.refillPointCost) refillNote = `${points}/${settings.refillPointCost} points`;
     rows.push({ key: "refill", label: "Energy refill", want: settings.useRefill ? 1 : 0, use: refillUse ? 1 : 0,
       short: settings.useRefill && !refillUse && !skips.refill ? 1 : 0, skipped: !!skips.refill, note: refillNote, done: refillDone ? 1 : 0, noBuy: true });
 
@@ -190,6 +196,14 @@ const HJP = (() => {
       return S("done", "Jump finished", `You gained about +${HJ.num(lj.gained)} battle stats. The plan for your next jump starts here when you're ready.`);
     }
     if (plan.xanUse > 0) {
+      // Nothing stacked yet and energy at or under max: not jumping. Show how to start, but this
+      // isn't a stacking step, so it sends no alerts.
+      if (plan.stacked === 0 && L.energy <= L.maxEnergy) {
+        const start = `take your first Xanax and stop spending energy to start a ${plan.xanUse}-Xanax stack.`;
+        return S("idle", "Not stacking", L.drugLeft > 0
+          ? `When you're ready to jump: your drug cooldown ends in ${HJ.dur(L.drugLeft)}, then ${start}`
+          : `When you're ready to jump, ${start}`);
+      }
       const n = plan.stacked + 1;
       const ad = ctx.addictStatus;
       if (ad && ad.inCourse && (ad.level === "rehab" || ad.safeXanax === 0)) {

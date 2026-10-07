@@ -23,27 +23,31 @@ const NOTIFY_STAGES = {
 
 function ensureAlarm() {
   chrome.alarms.create("poll", { periodInMinutes: 1 });
-  // Open as a full-height side panel where the browser supports it; otherwise keep the popup.
-  if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
-    chrome.action.setPopup({ popup: "" });
-    chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => chrome.action.setPopup({ popup: "popup.html" }));
-  }
+  // Older versions opened a side panel and cleared the popup; restore it for upgraded installs.
+  chrome.action.setPopup({ popup: "popup.html" });
 }
 chrome.runtime.onInstalled.addListener(details => {
   ensureAlarm();
   if (details.reason === "install") chrome.runtime.openOptionsPage();
+  if (details.reason === "update") migrateSettings();
   refresh(true);
 });
+/** One-time fixes to saved settings when the extension updates. */
+async function migrateSettings() {
+  const { settings } = await chrome.storage.local.get("settings");
+  // Old default of 5 eDVDs (30h of booster cooldown) can never fit the 24h cap; drop it to 4.
+  if (settings && settings.edvdCount === 5 && (settings.boosterCapH ?? 24) === 24) {
+    await chrome.storage.local.set({ settings: { ...settings, edvdCount: 4 } });
+    HJLog.info("settings", "eDVDs changed from 5 to 4 to fit the 24h booster cap");
+  }
+}
 chrome.runtime.onStartup.addListener(() => { ensureAlarm(); refresh(); });
 
-chrome.alarms.onAlarm.addListener(a => {
-  if (a.name === "poll") return refresh();
-  if (a.name === "drugReady" || a.name === "boosterReady") return refresh();
-});
+// "poll" every minute, plus one-shot alarms when the drug or booster cooldown ends.
+chrome.alarms.onAlarm.addListener(() => refresh());
 
 chrome.runtime.onMessage.addListener((msg, _sender, send) => {
   if (msg && msg.type === "refresh") { refresh(!!msg.force).then(send); return true; }
-  if (msg && msg.type === "log") { HJLog[msg.lvl in HJLog ? msg.lvl : "info"](msg.src || "page", msg.msg, msg.data); }
 });
 
 async function apiGet(path, key, { quiet = false } = {}) {
@@ -113,8 +117,10 @@ async function fetchCategory(key, cat, style) {
     const got = HJP.extractInventory(j);
     if (page === 0) {
       HJLog.debug("inventory", `${cat}: ${got.length} item rows`, HJLog.sample(j, 800));
-      // A non-trivial response with nothing parsed means the response shape has changed.
-      if (!got.length && JSON.stringify(j).length > 60) HJLog.warn("inventory", `${cat}: response not understood`, HJLog.sample(j));
+      // A non-trivial response with nothing parsed means the response shape has changed,
+      // unless it's an empty category (an empty items list, or a total of 0).
+      const empty = (j && j._metadata && j._metadata.total === 0) || (j && j.inventory && Array.isArray(j.inventory.items) && !j.inventory.items.length);
+      if (!got.length && !empty && JSON.stringify(j).length > 60) HJLog.warn("inventory", `${cat}: response not understood`, HJLog.sample(j));
     }
     items.push(...got);
     if (got.length < 100) break;
@@ -126,6 +132,7 @@ async function fetchInventory(key) {
   const { invCatStyle } = await chrome.storage.local.get("invCatStyle");
   const items = [];
   const failed = [];
+  const failedCats = [];
   let style = Number.isInteger(invCatStyle) ? invCatStyle : null;
   for (const cat of INV_CATEGORIES) {
     const tryStyles = style !== null ? [style, ...CAT_STYLES.keys()].filter((v, i, a) => a.indexOf(v) === i) : [...CAT_STYLES.keys()];
@@ -145,17 +152,26 @@ async function fetchInventory(key) {
         if (!/error 21\b/.test(e.message)) break; // only retry spellings on "Incorrect category"
       }
     }
-    if (!ok) { failed.push(`${cat}: ${lastErr}`); HJLog.error("inventory", `Couldn't read category ${cat}`, lastErr); }
+    if (!ok) { failed.push(`${cat}: ${lastErr}`); failedCats.push(cat); HJLog.error("inventory", `Couldn't read category ${cat}`, lastErr); }
   }
   HJLog.debug("inventory", `Read ${items.length} item rows`, items.map(i => `${i.name || i.id}×${i.amount}`).join(", "));
   if (failed.length === INV_CATEGORIES.length) {
     return { ok: false, at: Date.now(), error: failed[0], items: [] };
   }
-  // Some categories can fail (e.g. empty ones) without breaking the rest.
-  return { ok: true, at: Date.now(), items, partial: failed };
+  // Some categories can fail (e.g. empty ones) without breaking the rest. Items in them count as unknown, not zero.
+  return { ok: true, at: Date.now(), items, partial: failed, failedCats };
 }
 
-async function refresh(force = false) {
+// Alarms, the popup, settings and the gym page can all ask for a refresh at once. Share one run
+// so they don't race on stored state; a forced request waits for the current run, then forces its own.
+let inflight = null;
+function refresh(force = false) {
+  if (inflight) return force ? inflight.then(() => refresh(true)) : inflight;
+  inflight = doRefresh(force).finally(() => { inflight = null; });
+  return inflight;
+}
+
+async function doRefresh(force) {
   const st = await HJ.getAll();
   const { settings, gymsCache, snapshot: prev } = st;
   if (!settings.apiKey) {
@@ -174,7 +190,9 @@ async function refresh(force = false) {
     if (!st.keyInfo || Date.now() - st.keyInfo.at > DAY_MS) {
       try {
         const ki = await apiGet("/v2/key/info", key, { quiet: true });
-        updates.keyInfo = { at: Date.now(), raw: HJLog.sample(ki, 600) };
+        // The selection lists fill any sample before the useful part, so log the access level when present.
+        const access = ki && ki.info && ki.info.access;
+        updates.keyInfo = { at: Date.now(), raw: HJLog.sample(access || ki, 600) };
         HJLog.info("key", "Key info", updates.keyInfo.raw);
       } catch (e) { updates.keyInfo = { at: Date.now(), error: e.message }; HJLog.debug("key", `Key info unavailable: ${e.message}`); }
     }
@@ -197,7 +215,8 @@ async function refresh(force = false) {
     const snapshot = { at: Date.now(), user, addict };
     updates.snapshot = snapshot;
     updates.lastError = null;
-    const { jumpTrack, clearSkips } = updateTrack(st.jumpTrack, prev, snapshot);
+    const { jumpTrack, clearSkips } = updateTrack(st.jumpTrack, prev, snapshot,
+      HJ.gymInfo(snapshot, updates.gymsCache || gymsCache, settings).energy);
     updates.jumpTrack = jumpTrack;
     if (clearSkips) updates.skips = {};
     await chrome.storage.local.set(updates);
@@ -217,7 +236,7 @@ async function refresh(force = false) {
 }
 
 /** Follow the jump from snapshot to snapshot: Xanax taken, boost start, Ecstasy, end. */
-function updateTrack(track, prevSnap, snap) {
+function updateTrack(track, prevSnap, snap, trainCost) {
   const t = { stackXans: 0, ...(track || {}) };
   const L = HJ.live(snap);
   let clearSkips = false;
@@ -249,7 +268,11 @@ function updateTrack(track, prevSnap, snap) {
     const drugEnd = snap.at + ((snap.user.cooldowns || {}).drug || 0) * 1000;
     if (drugEnd > (t.drugEndAtBoost || 0) + 60000) { t.ecstasyAt = Date.now(); HJLog.info("track", "Ecstasy detected from new drug cooldown during boost"); }
   }
-  if (t.boostAt && L.happy <= L.maxHappy) {
+  // Happy can dip below max mid-train on a small boost, so the jump only ends once energy is
+  // spent or a quarter tick has reset happy since the boost started.
+  const q = 15 * 60 * 1000;
+  const tickPassed = t.boostAt && Math.floor(t.boostAt / q) < Math.floor(snap.at / q);
+  if (t.boostAt && L.happy <= L.maxHappy && (L.energy < trainCost || tickPassed)) {
     const total = Object.values(L.stats).reduce((a, b) => a + b, 0);
     t.lastJump = { endedAt: Date.now(), gained: total - (t.statsAtBoost || total) };
     HJLog.info("track", `Jump ended: +${t.lastJump.gained} total stats`);
