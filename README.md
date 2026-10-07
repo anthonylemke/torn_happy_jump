@@ -30,16 +30,6 @@ A **Limited Access** key is enough. Create one on Torn under *Settings → API K
 
 Your API key and data stay in your browser's extension storage and are only ever sent to `api.torn.com`. The built-in developer log masks your key.
 
-## Building the zip
-
-With [Node.js](https://nodejs.org) installed, commit your changes and run:
-
-```bash
-node scripts/package.mjs
-```
-
-This writes `dist/happy-jump-v<version>.zip` from the committed `happy-jump/` folder, using the version in `manifest.json`.
-
 ## Support
 
 Enjoying the helper? In-game donations and tips are appreciated: [toneykey #4412379](https://www.torn.com/profiles.php?XID=4412379).
