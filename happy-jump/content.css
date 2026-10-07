@@ -1,0 +1,29 @@
+.hjh-panel {
+  position: fixed; right: 16px; bottom: 16px; z-index: 99999; width: 280px;
+  background: #1f2638; color: #e9ecf3; border-radius: 12px; border-left: 4px solid #8f99b0;
+  box-shadow: 0 8px 24px rgba(10, 12, 20, .45);
+  font: 12px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-variant-numeric: tabular-nums;
+}
+.hjh-panel[data-k="active"], .hjh-panel[data-k="ready"] { border-left-color: #ff5fa2; }
+.hjh-panel[data-k="stacking"], .hjh-panel[data-k="waitEcstasy"] { border-left-color: #f2b84b; }
+.hjh-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+.hjh-head strong { font-size: 13px; flex: 1; color: #e9ecf3; }
+.hjh-tick { color: #8f99b0; }
+.hjh-min { width: 22px; height: 22px; border-radius: 6px; border: 1px solid #2e3850; background: #161b29; color: #e9ecf3; cursor: pointer; line-height: 1; }
+.hjh-min:focus-visible { outline: 2px solid #ff5fa2; }
+.hjh-collapsed .hjh-body { display: none; }
+.hjh-body { padding: 0 10px 10px; }
+.hjh-phase { margin: 0 0 6px; font-weight: 700; font-size: 13px; color: #e9ecf3; }
+.hjh-panel[data-k="active"] .hjh-phase { color: #ff5fa2; }
+.hjh-nums { display: flex; justify-content: space-between; color: #8f99b0; margin-bottom: 6px; }
+.hjh-nums b { color: #e9ecf3; }
+.hjh-table { width: 100%; border-collapse: collapse; }
+.hjh-table th { text-align: left; color: #8f99b0; font-weight: 500; padding: 3px 0; border-bottom: 1px solid #2e3850; background: none; }
+.hjh-table td { padding: 3px 0; color: #e9ecf3; border: 0; background: none; }
+.hjh-table th:not(:first-child), .hjh-table td:not(:first-child) { text-align: right; }
+.hjh-table tr.hjh-best td { color: #ff5fa2; font-weight: 700; }
+.hjh-note { margin: 6px 0 0; color: #8f99b0; font-size: 11px; }
+.hjh-addict { margin: 0 0 6px; color: #8f99b0; }
+.hjh-addict[data-level="watch"] { color: #f2b84b; }
+.hjh-addict[data-level="rehab"] { color: #ff6b6b; font-weight: 700; }
+.hjh-action { margin: 0 0 6px; color: #c8cede; }

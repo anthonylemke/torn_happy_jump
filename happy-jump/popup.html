@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Happy Jump Helper</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Happy jump</h1>
+      <p class="sub" id="who">Loading…</p>
+    </div>
+    <div class="top-actions">
+      <button id="refresh" class="icon-btn" title="Refresh from Torn API" aria-label="Refresh">↻</button>
+      <button id="openSettings" class="icon-btn" title="Settings" aria-label="Settings">⚙</button>
+    </div>
+  </header>
+
+  <div id="error" class="error" hidden></div>
+
+  <main id="main" hidden>
+    <section class="phase" id="phase">
+      <h2 id="phaseTitle"></h2>
+      <p id="phaseDetail"></p>
+      <p class="tick" id="tickLine">Next quarter tick in <strong id="tick">–</strong></p>
+      <div class="phase-actions" id="phaseActions"></div>
+      <p class="last" id="lastJump" hidden></p>
+    </section>
+
+    <section class="meters">
+      <div class="meter">
+        <div class="meter-head"><span>Happy</span><span id="happyVal"></span></div>
+        <div class="bar happy"><i id="happyBar"></i><b id="happyMax" title="Your maximum happy"></b></div>
+      </div>
+      <div class="meter">
+        <div class="meter-head"><span>Energy stack</span><span id="energyVal"></span></div>
+        <div class="bar energy"><i id="energyBar"></i></div>
+      </div>
+      <dl class="cds">
+        <div><dt>Drug cooldown</dt><dd id="drugCd"></dd></div>
+        <div><dt>Booster cooldown</dt><dd id="boosterCd"></dd></div>
+        <div><dt>Refill / points</dt><dd id="refill"></dd></div>
+      </dl>
+    </section>
+
+    <section class="plan">
+      <h3>Your jump with what you have</h3>
+      <table class="items">
+        <thead><tr><th>Item</th><th>Using</th><th>Owned</th><th></th></tr></thead>
+        <tbody id="itemRows"></tbody>
+      </table>
+      <p class="inv-note" id="invNote" hidden></p>
+      <div class="plan-grid">
+        <div><span class="k">Happy</span><span class="v pink" id="planHappy"></span></div>
+        <div><span class="k">Energy</span><span class="v amber" id="planEnergy"></span></div>
+        <div><span class="k">Train</span><span class="v" id="planStat"></span></div>
+        <div><span class="k">Est. gain</span><span class="v" id="planGain"></span></div>
+      </div>
+      <p class="compare" id="planCompare"></p>
+      <p class="money" id="moneyLine"></p>
+    </section>
+
+    <section class="risk" id="risk">
+      <h3>Addiction and overdose</h3>
+      <div class="risk-row">
+        <div>
+          <span class="k">Addiction debuff</span>
+          <span class="v" id="addPct">–</span>
+          <span class="s" id="addSrc"></span>
+        </div>
+        <div>
+          <span class="k">Safe Xanax left</span>
+          <span class="v" id="safeXan">–</span>
+          <span class="s" id="safeNote"></span>
+        </div>
+      </div>
+      <div class="bar addict"><i id="addBar"></i><b id="addWarn" title="Rehab line"></b><b id="addKick" class="kick" title="Education kick line"></b></div>
+      <p class="risk-msg" id="riskMsg"></p>
+      <dl class="cds">
+        <div><dt>Overdose risk, rest of stack</dt><dd id="odStack"></dd></div>
+        <div><dt>Your lifetime OD rate</dt><dd id="odLife"></dd></div>
+        <div><dt>Education</dt><dd id="eduState"></dd></div>
+      </dl>
+    </section>
+
+    <div class="controls">
+      <button id="pause" class="text-btn"></button>
+      <button id="resetSkips" class="text-btn">Undo all "proceed without"</button>
+    </div>
+
+    <p class="foot" id="foot"></p>
+  </main>
+  <script src="lib/log.js"></script>
+<script src="lib/calc.js"></script>
+  <script src="lib/plan.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

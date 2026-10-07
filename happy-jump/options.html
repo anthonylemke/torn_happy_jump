@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Happy Jump Helper settings</title>
+<link rel="stylesheet" href="options.css">
+</head>
+<body>
+<main>
+  <h1>Happy Jump Helper</h1>
+  <p class="lead">Set your key and how you plan to jump. Everything is stored only in this browser and sent only to api.torn.com.</p>
+
+  <section>
+    <h2>API key</h2>
+    <label for="apiKey">Torn API key</label>
+    <div class="row">
+      <input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="16-character key">
+      <button id="toggleKey" type="button" class="ghost">Show</button>
+      <button id="testKey" type="button">Test key</button>
+    </div>
+    <p class="hint" id="keyStatus">Uses the selections basic, bars, cooldowns, battlestats, gym, refills, perks, icons, personalstats, education, money, company/employees, v2 user/inventory, torn/items and torn/gyms. A Full Access key works; a Limited key covers these too.</p>
+  </section>
+
+  <section>
+    <h2>Your jump</h2>
+    <div class="grid">
+      <div><label for="xanaxCount">Xanax to stack (full jump)</label><input id="xanaxCount" type="number" min="0" max="4"><p class="hint">250 energy each, 1000 cap.</p></div>
+      <div><label for="edvdCount">eDVDs</label><input id="edvdCount" type="number" min="0" max="10"><p class="hint">+2,500 happy and ~6h booster cooldown each.</p></div>
+      <div><label for="extraEnergy">Extra energy</label><input id="extraEnergy" type="number" min="0"><p class="hint">FHCs, energy cans, etc.</p></div>
+      <div><label for="targetStat">Stat to train</label>
+        <select id="targetStat">
+          <option value="auto">Best gain (auto)</option>
+          <option value="strength">Strength</option>
+          <option value="speed">Speed</option>
+          <option value="dexterity">Dexterity</option>
+          <option value="defense">Defense</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid">
+      <div><label for="boosterCapH">Booster cooldown cap (hours)</label><input id="boosterCapH" type="number" min="1" max="72"><p class="hint">24 by default. Raise it if perks give you more room.</p></div>
+      <div><label for="refillPointCost">Energy refill cost (points)</label><input id="refillPointCost" type="number" min="0"></div>
+    </div>
+    <label class="check"><input id="useEcstasy" type="checkbox"> Take Ecstasy (doubles happy)</label>
+    <label class="check"><input id="useRefill" type="checkbox"> Use my daily energy refill</label>
+    <label class="check"><input id="useCandy" type="checkbox"> Use candy I own when booster room allows (or instead of eDVDs)</label>
+    <label class="check"><input id="useEnergyItems" type="checkbox"> Use energy drinks I own with spare booster room</label>
+    <p class="hint">The popup plans with what's in your inventory. These are the targets for a full jump; anything you're short on can be skipped with "Proceed without".</p>
+  </section>
+
+  <section>
+    <h2>Gym estimates</h2>
+    <p class="hint">Leave blank to use your active gym and perks from the API.</p>
+    <div class="grid">
+      <div><label for="gymDotsOverride">Gym gains (dots)</label><input id="gymDotsOverride" type="number" step="0.1" placeholder="auto"></div>
+      <div><label for="gymEnergyOverride">Energy per train</label><input id="gymEnergyOverride" type="number" placeholder="auto"></div>
+      <div><label for="gymBonusOverride">Total gym bonus %</label><input id="gymBonusOverride" type="number" step="0.1" placeholder="auto"></div>
+      <div><label for="happyLossPerEnergy">Happy lost per energy</label><input id="happyLossPerEnergy" type="number" step="0.05" min="0" max="1"><p class="hint">About 0.5 on average.</p></div>
+    </div>
+    <p class="hint" id="perkList"></p>
+  </section>
+
+  <section>
+    <h2>Addiction and overdose</h2>
+    <div class="grid">
+      <div><label for="kickPct">Education kick line (debuff %)</label><input id="kickPct" type="number" step="0.5" min="1" max="30"><p class="hint">Players report about 6%, or about 8% with full Toleration perks.</p></div>
+      <div><label for="warnMarginPct">Rehab this far before it (%)</label><input id="warnMarginPct" type="number" step="0.5" min="0" max="10"><p class="hint">With the defaults, you're told to rehab at 5%.</p></div>
+      <div><label for="odRatePct">Overdose chance per dose (%)</label><input id="odRatePct" type="number" step="0.1" min="0" max="100"><p class="hint">Torn doesn't publish this. About 2–3% is the common estimate.</p></div>
+    </div>
+    <label class="check"><input id="notifyAddiction" type="checkbox"> Warn me when my education course is at risk</label>
+    <label class="check"><input id="notifyOverdose" type="checkbox"> Notify me if I overdose</label>
+  </section>
+
+  <section>
+    <h2>Alerts and overlay</h2>
+    <label class="check"><input id="notifyDrug" type="checkbox"> Notify me when it's time for my next step</label>
+    <label class="check"><input id="showOverlay" type="checkbox"> Show the info panel on the Torn gym page</label>
+  </section>
+
+  <div class="actions">
+    <button id="save" type="button" class="primary">Save settings</button>
+    <span id="saved" role="status"></span>
+  </div>
+
+  <details class="dev" id="dev">
+    <summary>Developer log</summary>
+    <p class="hint">Records errors and what the extension learned about the Torn API, such as the inventory category spelling that works. Your API key is never written here. Copy or download it to share when something needs fixing.</p>
+    <dl class="diag" id="diag"></dl>
+    <label class="check"><input id="devVerbose" type="checkbox"> Verbose logging (every API call, raw response samples, icon text)</label>
+    <div class="dev-bar">
+      <select id="logFilter" aria-label="Filter log">
+        <option value="all">All entries</option>
+        <option value="problems">Errors and warnings</option>
+        <option value="info">Info and above</option>
+      </select>
+      <button id="logRefresh" type="button" class="ghost">Refresh</button>
+      <button id="logCopy" type="button">Copy log</button>
+      <button id="logDownload" type="button">Download</button>
+      <button id="logClear" type="button" class="ghost">Clear</button>
+      <span id="logStatus" role="status"></span>
+    </div>
+    <pre class="log" id="logView" tabindex="0"></pre>
+  </details>
+
+  <p class="fine">This extension only reads data and shows it. It never clicks, trains, or uses items for you, in line with Torn's rules on scripts and tools.</p>
+</main>
+<script src="lib/log.js"></script>
+<script src="lib/calc.js"></script>
+<script src="options.js"></script>
+</body>
+</html>
