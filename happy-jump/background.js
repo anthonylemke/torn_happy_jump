@@ -346,7 +346,7 @@ async function reactToStage(st) {
   const settings = st.settings;
   const { js: state, ad } = HJP.fullState({ snap: st.snapshot, settings, inv: st.inventory, catalog: st.catalog,
     skips: st.skips || {}, track: st.jumpTrack || {}, gymsCache: st.gymsCache }, st.addictLearn);
-  updateBadge(st.snapshot, settings, state, ad);
+  updateBadge(state, ad);
 
   const { lastStageKey } = await chrome.storage.local.get("lastStageKey");
   if (state.key !== lastStageKey) {
@@ -399,11 +399,10 @@ function scheduleCooldownAlarms(snap) {
   }
 }
 
-function updateBadge(snap, settings, state, ad) {
+// Badge only when a step is due. Waiting steps (cooldown running, stack building) show nothing.
+function updateBadge(state, ad) {
   const map = {
-    stackWait: [String(snap.user.energy.current), "#b07a1c"],
     stackTake: ["XAN", "#e8467c"],
-    waitDrug: ["WAIT", "#b07a1c"],
     blocked: ["!", "#b07a1c"],
     ready: ["RDY", "#e8467c"],
     ecstasy: ["GO", "#e8467c"],

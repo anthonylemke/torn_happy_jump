@@ -13,7 +13,7 @@ A Chrome / Edge / Brave extension that reads your Torn API data and tells you wh
 - **It knows where you are.** From your energy, happy, drug and booster cooldowns, refill status and recent changes, it detects each step: not stacking yet (no alerts until your first Xanax), stacking Xanax, waiting on the drug cooldown, ready to boost, Ecstasy, refill, training, and done. There's no checklist to tick.
 - **It plans with your inventory.** It reads your items (Xanax, eDVDs, Ecstasy, candy, energy drinks), your points and your cash. The plan uses what you own and fits boosters into your remaining booster cooldown room.
 - **Short on something?** Each missing item shows how many you need and roughly what it costs at market value. Press **Skip** (or **Proceed without** on the current step) and the plan rebuilds around what you have, for example a candy-only jump, no Ecstasy, or a smaller stack. Skips reset automatically after each jump.
-- **Alerts:** a notification whenever your next step changes (time for a Xanax, stack complete, ready to jump, blocked, rehab first). The badge shows `XAN`, stack energy, `WAIT`, `RDY`, `GO` or `RHB`.
+- **Alerts:** a notification whenever your next step changes (time for a Xanax, stack complete, ready to jump, blocked, rehab first). The icon badge only appears when a step is due: `XAN`, `RDY`, `GO`, `!` (blocked) or `RHB`.
 - **Addiction and overdose:** debuff %, safe Xanax count before your rehab line, overdose odds for the rest of your stack, and education kick-risk warnings.
 - **Gym page panel:** your current step, live happy/energy, quarter-tick countdown and per-stat gain estimates.
 - **Not jumping right now?** Use **Pause tracking** in the popup to silence step alerts.
