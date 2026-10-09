@@ -174,7 +174,7 @@ function renderRisk(st) {
     pct.title = "Too low for Torn to show";
   }
   $("safeXan").textContent = st.safeXanax !== null ? String(st.safeXanax) : "Learning";
-  $("safeXan").title = st.safeXanax !== null ? `~${st.perXan.toFixed(2)}% per Xanax, learned` : "Updates after your next Xanax with a visible debuff";
+  $("safeXan").title = st.safeXanax !== null ? `~${st.perXan.toFixed(2)}% per Xanax, learned` : "Learns from how your addiction % rises across your Xanax. Needs a visible debuff (1% or more) and usually 1–3 Xanax.";
   $("odStack").textContent = st.xansLeft ? `${(st.odStack * 100).toFixed(1)}%` : "Done";
   $("odStack").title = `${st.xansLeft} Xanax left at ${settings.odRatePct}% per dose (community estimate). Including Ecstasy: ${(st.odStackWithXtc * 100).toFixed(1)}%.`;
 

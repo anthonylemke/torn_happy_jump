@@ -364,14 +364,14 @@ async function trackAddiction(snap, settings) {
   const ps = snap.addict && snap.addict.personalstats;
   if (!ps) return addictLearn;
   const read = HJ.readAddiction(snap);
-  const now = { xan: Number(ps.xantaken) || 0, od: Number(ps.overdosed) || 0, rehabs: Number(ps.rehabs) || 0, pct: read.pct, at: Date.now() };
+  const drugs = HJ.lifetimeDrugs(ps);
+  const now = { xan: drugs.xan, other: drugs.taken - drugs.xan, od: drugs.od, rehabs: drugs.rehabs, pct: read.pct, at: Date.now() };
   const last = addictLearn.last;
+  const before = HJ.perXanaxEstimate(addictLearn);
+  Object.assign(addictLearn, HJ.learnAddiction(addictLearn, now));
+  const after = HJ.perXanaxEstimate(addictLearn);
+  if (after !== before) HJLog.info("addiction", `Addiction per Xanax: ${after === null ? "unknown" : `~${after.toFixed(2)}%`}`, addictLearn.run);
   if (last) {
-    const dXan = now.xan - last.xan;
-    const clean = now.od === last.od && now.rehabs === last.rehabs;
-    if (clean && dXan > 0 && dXan <= 2 && last.pct > 0 && now.pct > last.pct) {
-      addictLearn.samples = [...(addictLearn.samples || []), (now.pct - last.pct) / dXan].slice(-8);
-    }
     if (now.od > last.od && settings.notifyOverdose) {
       notify("od", "You overdosed",
         "An overdose adds roughly 2–5× the addiction of a normal dose and usually ruins a stack. Check your addiction and consider rehab before the next drug.");

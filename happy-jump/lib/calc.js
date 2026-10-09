@@ -200,10 +200,43 @@ const HJ = (() => {
     return { taken, od, xan: Number(ps.xantaken) || 0, rehabs: Number(ps.rehabs) || 0, rate: taken ? od / taken : null };
   }
 
+  // Torn shows the debuff in whole percents, so one Xanax often doesn't move it. Instead, measure across a
+  // run of Xanax: from the first visible % to the latest, rise in % divided by Xanax taken. A run ends, and
+  // its estimate is kept, on an overdose, a rehab, any other drug (those add addiction too), the % dropping,
+  // or after 36h, when natural decay starts to skew it.
+  const RUN_MAX_MS = 36 * 3600 * 1000;
+
+  function runEstimate(run) {
+    if (!run) return null;
+    const dx = run.endXan - run.xan, dp = run.endPct - run.pct;
+    return dx >= 1 && dp > 0 ? dp / dx : null;
+  }
+
+  /** Fold one reading ({ xan, other, od, rehabs, pct, at }) into what's been learned about addiction per Xanax. */
+  function learnAddiction(learn, now) {
+    const out = { samples: [...((learn && learn.samples) || [])], run: learn && learn.run ? { ...learn.run } : null };
+    const run = out.run;
+    if (run) {
+      const broken = now.od !== run.od || now.rehabs !== run.rehabs || now.other !== run.other || now.xan < run.endXan
+        || (now.pct !== null && now.pct < run.endPct) || now.at - run.at > RUN_MAX_MS;
+      if (broken) {
+        const est = runEstimate(run);
+        if (est) out.samples = [...out.samples, est].slice(-8);
+        out.run = null;
+      } else if (now.pct > 0) { run.endXan = now.xan; run.endPct = now.pct; }
+    }
+    if (!out.run && now.pct > 0) {
+      out.run = { xan: now.xan, pct: now.pct, at: now.at, od: now.od, rehabs: now.rehabs, other: now.other, endXan: now.xan, endPct: now.pct };
+    }
+    return out;
+  }
+
+  /** Average addiction % per Xanax from finished runs plus the current one. */
   function perXanaxEstimate(learn) {
-    const s = learn && learn.samples;
-    if (!s || !s.length) return null;
-    return s.reduce((a, b) => a + b, 0) / s.length;
+    const vals = [...((learn && learn.samples) || [])];
+    const cur = runEstimate(learn && learn.run);
+    if (cur) vals.push(cur);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
   }
 
   /** Everything the UI needs about addiction risk for the current jump. */
@@ -266,6 +299,6 @@ const HJ = (() => {
 
   return { STATS, DEFAULT_SETTINGS, gainPerTrain, simulate, parseGymPerks, gymInfo, multipliers, live,
     stackTarget, project, msToQuarterTick, dur, clock, zoneLabel, num, cap, getAll,
-    readAddiction, odChance, lifetimeDrugs, perXanaxEstimate, addictionStatus };
+    readAddiction, odChance, lifetimeDrugs, learnAddiction, perXanaxEstimate, addictionStatus };
 })();
 if (typeof self !== "undefined") self.HJ = HJ;
