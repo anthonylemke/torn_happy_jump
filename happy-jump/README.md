@@ -10,12 +10,13 @@ A Chrome / Edge / Brave extension that reads your Torn API data and tells you wh
 5. Pin the extension and click its icon to open the popup.
 
 ## How it works
-- **It knows where you are.** From your energy, happy, drug and booster cooldowns, refill status and recent changes, it detects each step: not stacking yet (no alerts until your first Xanax), stacking Xanax, waiting on the drug cooldown, ready to boost, Ecstasy, training the stack down, your energy refill (only once you're out, since it fills to max rather than adding), training again, and done. There's no checklist to tick.
+- **It knows where you are.** From your energy, happy, drug and booster cooldowns, refill status and recent changes, it detects each step: not stacking yet (no alerts until your first Xanax), stacking Xanax, waiting on the drug cooldown, ready to boost, Ecstasy, training the stack down, your energy refill (only once you're out, since it fills to max rather than adding), energy drinks (they add, up to 1,000), training again, and done. There's no checklist to tick.
 - **It plans with your inventory.** It reads your items (Xanax, eDVDs, Ecstasy, candy, energy drinks), your points and your cash. The plan uses what you own and fits boosters into your remaining booster cooldown room.
 - **Short on something?** Each missing item shows how many you need and roughly what it costs at market value. Press **Skip** (or **Proceed without** on the current step) and the plan rebuilds around what you have, for example a candy-only jump, no Ecstasy, or a smaller stack. Skips reset automatically after each jump.
 - **Alerts:** a notification whenever your next step changes (time for a Xanax, stack complete, ready to jump, blocked, rehab first). The icon badge only appears when a step is due: `XAN`, `RDY`, `GO`, `!` (blocked) or `RHB`.
 - **Addiction and overdose:** debuff %, safe Xanax count before your rehab line, overdose odds for the rest of your stack, and education kick-risk warnings.
 - **Gym page panel:** your current step, live happy/energy, quarter-tick countdown and per-stat gain estimates.
+- **Plan view and shopping list:** the ☰ button shows every step of the jump in order, with anything reduced or dropped and why, and a shopping list for the full jump: what you're short, plus the best energy drinks and candy to fill your spare booster room. Tick eDVDs, Cans or Candy to choose what fills it.
 - **Not jumping right now?** Use **Pause tracking** in the popup to silence step alerts.
 
 ## What it does not do

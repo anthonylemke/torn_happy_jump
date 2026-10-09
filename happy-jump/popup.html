@@ -55,9 +55,24 @@
     </section>
 
     <section class="card plan-view" id="planView">
-      <h2 class="plan-head">Plan steps</h2>
-      <ol class="steps" id="steps"></ol>
-      <p class="note" id="stepsNote"></p>
+      <div class="seg" role="tablist">
+        <button id="tabSteps" role="tab" aria-selected="true">Steps</button>
+        <button id="tabShop" role="tab" aria-selected="false">Shopping</button>
+      </div>
+      <div class="pane-steps">
+        <ol class="steps" id="steps"></ol>
+        <p class="note" id="stepsNote"></p>
+      </div>
+      <div class="pane-shop">
+      <p class="plan-head">What to buy for the full jump</p>
+      <div class="shop-opts">Fill booster room with:
+        <label><input type="checkbox" id="optEdvd"> eDVDs</label>
+        <label><input type="checkbox" id="optDrinks"> Cans</label>
+        <label><input type="checkbox" id="optCandy"> Candy</label>
+      </div>
+      <ul class="shop" id="shopList"></ul>
+      <p class="note" id="shopNote"></p>
+      </div>
     </section>
 
     <section class="card risk" id="risk">

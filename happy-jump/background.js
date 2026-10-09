@@ -274,10 +274,12 @@ async function doRefresh(force) {
     const snapshot = { at: Date.now(), user, addict };
     updates.snapshot = snapshot;
     updates.lastError = null;
-    const points = addict.money ? Number(addict.money.points) : NaN;
-    const refillPending = settings.useRefill && !(st.skips || {}).refill && !user.energy_refill_used && !(points < settings.refillPointCost);
+    // Energy still to come after the stack is spent (refill, drinks) keeps a jump open once energy runs out.
+    const pre = HJP.buildPlan({ snap: snapshot, settings, inv: updates.inventory || st.inventory, catalog: updates.catalog || st.catalog,
+      skips: st.skips || {}, track: st.jumpTrack || {} });
+    const morePending = (pre.refillUse && !pre.refillDone) || pre.boosterUses.some(b => b.kind === "energy");
     const { jumpTrack, clearSkips } = updateTrack(st.jumpTrack, prev, snapshot,
-      HJ.gymInfo(snapshot, updates.gymsCache || gymsCache, settings).energy, refillPending);
+      HJ.gymInfo(snapshot, updates.gymsCache || gymsCache, settings).energy, morePending);
     updates.jumpTrack = jumpTrack;
     if (clearSkips) updates.skips = {};
     await chrome.storage.local.set(updates);
@@ -297,7 +299,7 @@ async function doRefresh(force) {
 }
 
 /** Follow the jump from snapshot to snapshot: Xanax taken, boost start, Ecstasy, end. */
-function updateTrack(track, prevSnap, snap, trainCost, refillPending) {
+function updateTrack(track, prevSnap, snap, trainCost, morePending) {
   const t = { stackXans: 0, ...(track || {}) };
   const L = HJ.live(snap);
   let clearSkips = false;
@@ -324,20 +326,26 @@ function updateTrack(track, prevSnap, snap, trainCost, refillPending) {
     t.drugEndAtBoost = snap.at + ((snap.user.cooldowns || {}).drug || 0) * 1000;
     t.statsAtBoost = Object.values(L.stats).reduce((a, b) => a + b, 0);
   }
+  // A booster cooldown increase after the boost started means energy drinks were drunk.
+  if (prevSnap && t.boostAt && !t.drinksAt && prevSnap.at >= t.boostAt) {
+    const elapsed = (snap.at - prevSnap.at) / 1000;
+    const prevB = (prevSnap.user.cooldowns || {}).booster || 0, nowB = (snap.user.cooldowns || {}).booster || 0;
+    if (nowB > prevB - elapsed + 60) { t.drinksAt = Date.now(); HJLog.info("track", "Energy drinks detected from booster cooldown during jump"); }
+  }
   // Any drug taken after the boost started (that isn't a Xanax) is the Ecstasy.
   if (t.boostAt && !t.ecstasyAt) {
     const drugEnd = snap.at + ((snap.user.cooldowns || {}).drug || 0) * 1000;
     if (drugEnd > (t.drugEndAtBoost || 0) + 60000) { t.ecstasyAt = Date.now(); HJLog.info("track", "Ecstasy detected from new drug cooldown during boost"); }
   }
   // Happy can dip below max mid-train on a small boost, so the jump only ends once energy is
-  // spent (and any planned refill used and spent too) or a quarter tick has reset happy since the boost started.
+  // spent (including any planned refill and drinks) or a quarter tick has reset happy since the boost started.
   const q = 15 * 60 * 1000;
   const tickPassed = t.boostAt && Math.floor(t.boostAt / q) < Math.floor(snap.at / q);
-  if (t.boostAt && L.happy <= L.maxHappy && ((L.energy < trainCost && !refillPending) || tickPassed)) {
+  if (t.boostAt && L.happy <= L.maxHappy && ((L.energy < trainCost && !morePending) || tickPassed)) {
     const total = Object.values(L.stats).reduce((a, b) => a + b, 0);
     t.lastJump = { endedAt: Date.now(), gained: total - (t.statsAtBoost || total) };
     HJLog.info("track", `Jump ended: +${t.lastJump.gained} total stats`);
-    delete t.boostAt; delete t.ecstasyAt; delete t.refillUsedAtBoost; delete t.statsAtBoost; delete t.drugEndAtBoost;
+    delete t.boostAt; delete t.ecstasyAt; delete t.drinksAt; delete t.refillUsedAtBoost; delete t.statsAtBoost; delete t.drugEndAtBoost;
     t.stackXans = 0; clearSkips = true;
   }
   if (!t.boostAt && L.energy <= L.maxEnergy) t.stackXans = 0;
@@ -409,11 +417,12 @@ function updateBadge(state, ad) {
     ready: ["RDY", "#e8467c"],
     ecstasy: ["GO", "#e8467c"],
     refill: ["GO", "#e8467c"],
+    drink: ["GO", "#e8467c"],
     train: ["GO", "#e8467c"],
     rehab: ["RHB", "#c0392b"]
   };
   let [text, color] = map[state.key] || ["", "#555"];
-  if (ad.level === "rehab" && !["ecstasy", "refill", "train"].includes(state.key)) { text = "RHB"; color = "#c0392b"; }
+  if (ad.level === "rehab" && !["ecstasy", "refill", "drink", "train"].includes(state.key)) { text = "RHB"; color = "#c0392b"; }
   chrome.action.setBadgeText({ text });
   chrome.action.setBadgeBackgroundColor({ color });
 }

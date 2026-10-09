@@ -138,27 +138,42 @@ const HJP = (() => {
       done: stacked, cost: xanShort * priceOf("xanax"), skipped: !!skips.xanax,
       note: stacked ? `${stacked} taken` : "" });
 
+    // Energy refill. Decided before boosters because it limits how much drink energy fits.
+    const points = money ? Number(money.points) : null;
+    const refillDone = boosted && L.refillUsed && !track.refillUsedAtBoost;
+    const refillUse = settings.useRefill && !skips.refill && (refillDone || (!L.refillUsed && (points === null || points >= settings.refillPointCost)));
+
     // Booster room shared by eDVDs, candy and energy drinks
-    let room = settings.boosterCapH * 60 - L.boosterLeft / 60;
+    const roomStart = settings.boosterCapH * 60 - L.boosterLeft / 60;
+    let room = roomStart;
     const boosterUses = [];
     let happyGain = 0, energyGain = 0;
 
+    const dvdWant = settings.useEdvd ? settings.edvdCount : 0;
     const dvdHave = have("erotic dvd");
     const dvdFit = Math.max(0, Math.floor(room / EDVD_MIN));
-    const dvdUse = boosted || skips.edvd ? 0 : Math.min(settings.edvdCount, dvdHave ?? settings.edvdCount, dvdFit);
-    const dvdShort = boosted || skips.edvd || dvdHave === null ? 0 : Math.max(0, Math.min(settings.edvdCount, dvdFit) - dvdHave);
+    const dvdUse = boosted || skips.edvd ? 0 : Math.min(dvdWant, dvdHave ?? dvdWant, dvdFit);
+    const dvdShort = boosted || skips.edvd || dvdHave === null ? 0 : Math.max(0, Math.min(dvdWant, dvdFit) - dvdHave);
     if (dvdUse) { boosterUses.push({ name: "Erotic DVD", n: dvdUse }); room -= dvdUse * EDVD_MIN; happyGain += dvdUse * 2500; }
-    rows.push({ key: "edvd", label: "eDVDs", want: settings.edvdCount, have: dvdHave, use: dvdUse, short: dvdShort,
+    rows.push({ key: "edvd", label: "eDVDs", want: dvdWant, have: dvdHave, use: dvdUse, short: dvdShort,
       cost: dvdShort * priceOf("erotic dvd"), skipped: !!skips.edvd,
-      note: dvdFit < settings.edvdCount && !boosted ? `room for ${dvdFit}` : "" });
+      note: dvdFit < dvdWant && !boosted ? `room for ${dvdFit}` : "" });
 
+    // Drinks come after the stack is trained down and the refill (which fills to max) is used,
+    // so only the energy that fits under the 1,000 cap from there counts.
+    const drinkCap = 1000 - (refillUse ? L.maxEnergy : 0);
+    let drinkRoom = drinkCap;
+    // Best first: most happy or energy per minute of booster cooldown, then cheapest for it.
+    const rate = i => (i.happy || i.energy) / i.boosterMin;
+    const byRate = (a, b) => rate(b) - rate(a) || a.value / (a.happy || a.energy) - b.value / (b.happy || b.energy);
     const fill = (kind, enabled) => {
-      if (!enabled || !owned || boosted) return [];
-      const pool = items.filter(i => i.kind === kind && owned[i.name.toLowerCase()] > 0)
-        .sort((a, b) => ((b.happy || b.energy) / b.boosterMin) - ((a.happy || a.energy) / a.boosterMin));
+      // Candy is a pre-boost happy item; drinks are still to come mid-jump unless already drunk.
+      if (!enabled || !owned || (boosted && (kind === "candy" || track.drinksAt))) return [];
+      const pool = items.filter(i => i.kind === kind && owned[i.name.toLowerCase()] > 0).sort(byRate);
       const used = [];
       for (const it of pool) {
-        const n = Math.min(owned[it.name.toLowerCase()], Math.floor(room / it.boosterMin));
+        let n = Math.min(owned[it.name.toLowerCase()], Math.floor(room / it.boosterMin));
+        if (kind === "energy") { n = Math.min(n, Math.floor(drinkRoom / it.energy)); drinkRoom -= Math.max(0, n) * it.energy; }
         if (n <= 0) continue;
         room -= n * it.boosterMin;
         used.push({ name: it.name, n, each: it.happy || it.energy, kind });
@@ -166,10 +181,10 @@ const HJP = (() => {
       }
       return used;
     };
-    // With eDVDs, spare room goes to energy first. Without them, candy is the happy source.
-    let candy = [], drinks = [];
-    if (dvdUse) { drinks = fill("energy", settings.useEnergyItems && !skips.drinks); candy = fill("candy", settings.useCandy && !skips.candy); }
-    else { candy = fill("candy", settings.useCandy && !skips.candy); drinks = fill("energy", settings.useEnergyItems && !skips.drinks); }
+    // Spare room goes to energy drinks before candy: per hour of booster cooldown, a can's energy
+    // adds several times more gain than candy's happy.
+    const drinks = fill("energy", settings.useEnergyItems && !skips.drinks);
+    const candy = fill("candy", settings.useCandy && !skips.candy);
     boosterUses.push(...candy, ...drinks);
     if (candy.length || (settings.useCandy && owned && !boosted)) {
       const candyOwned = items.filter(i => i.kind === "candy").reduce((a, i) => a + (owned[i.name.toLowerCase()] || 0), 0);
@@ -190,10 +205,7 @@ const HJP = (() => {
     rows.push({ key: "ecstasy", label: "Ecstasy", want: settings.useEcstasy ? 1 : 0, have: xtcHave, use: xtcUse ? 1 : 0,
       short: xtcShort, cost: xtcShort * priceOf("ecstasy"), skipped: !!skips.ecstasy, done: track.ecstasyAt ? 1 : 0 });
 
-    // Energy refill
-    const points = money ? Number(money.points) : null;
-    const refillDone = boosted && L.refillUsed && !track.refillUsedAtBoost;
-    let refillUse = settings.useRefill && !skips.refill && (refillDone || (!L.refillUsed && (points === null || points >= settings.refillPointCost)));
+    // Energy refill row
     let refillNote = "";
     if (settings.useRefill && !refillDone && L.refillUsed) refillNote = "used today";
     else if (settings.useRefill && points !== null && points < settings.refillPointCost) refillNote = `${points}/${settings.refillPointCost} points`;
@@ -205,7 +217,30 @@ const HJP = (() => {
     const energy = stackTarget + (refillUse && !refillDone ? L.maxEnergy : 0) + energyGain + (+settings.extraEnergy || 0);
     const missingCost = rows.reduce((a, r) => a + (r.skipped || r.noBuy ? 0 : r.cost || 0), 0);
 
-    return { rows, boosterUses, stacked, stackTarget, xanUse, xanHave, xtcUse, refillUse, refillDone, happy, energy,
+    // Shopping list for the full jump: what's short, then the best drinks and candy to fill the
+    // booster room left once all the eDVDs you want are in. Only items with a market price are suggested.
+    const shopping = [];
+    const buy = (name, qty, why) => { if (qty > 0) shopping.push({ name, qty, why, cost: qty * priceOf(name.toLowerCase()) }); };
+    if (!boosted) {
+      buy("Xanax", xanShort, "to finish your stack");
+      buy("Erotic DVD", dvdShort, `for ${Math.min(dvdWant, dvdFit)} eDVDs`);
+      buy("Ecstasy", xtcShort, "to double your happy");
+      let r = roomStart - (skips.edvd ? 0 : Math.min(dvdWant, dvdFit)) * EDVD_MIN;
+      let cap = drinkCap;
+      const topUp = (kind, enabled, why) => {
+        if (!enabled || !owned) return;
+        const fit = it => Math.min(Math.floor(r / it.boosterMin), kind === "energy" ? Math.floor(cap / it.energy) : Infinity);
+        const take = (it, n) => { r -= n * it.boosterMin; if (kind === "energy") cap -= n * it.energy; };
+        const pool = items.filter(i => i.kind === kind).sort(byRate);
+        for (const it of pool) take(it, Math.max(0, Math.min(owned[it.name.toLowerCase()] || 0, fit(it))));
+        const best = pool.find(i => i.value > 0);
+        if (best && fit(best) > 0) { const n = fit(best); buy(best.name, n, why); take(best, n); }
+      };
+      topUp("energy", settings.useEnergyItems && !skips.drinks, "to fill booster room with energy");
+      topUp("candy", settings.useCandy && !skips.candy, "to fill booster room with happy");
+    }
+
+    return { shopping, shoppingCost: shopping.reduce((a, s) => a + s.cost, 0), rows, boosterUses, stacked, stackTarget, xanUse, xanHave, xtcUse, refillUse, refillDone, happy, energy,
       happyGain, energyGain, missingCost, money: money ? Number(money.money_onhand) || 0 : null, points,
       shortages: rows.filter(r => r.short > 0 && !r.skipped), inventoryKnown: !!owned };
   }
@@ -217,20 +252,25 @@ const HJP = (() => {
     const L = HJ.live(snap);
     const gym = HJ.gymInfo(snap, gymsCache, settings);
     const tick = HJ.dur(HJ.msToQuarterTick() / 1000);
-    const boostList = plan.boosterUses.map(b => `${b.n}× ${b.name}`).join(", ");
+    const list = uses => uses.map(b => `${b.n}× ${b.name}`).join(", ");
+    const boostList = list(plan.boosterUses.filter(b => b.kind !== "energy"));
+    const drinkList = list(plan.boosterUses.filter(b => b.kind === "energy"));
     const S = (key, title, action, extra = {}) => ({ key, title, action, plan, ...extra });
 
     if (settings.paused) return S("paused", "Tracking paused", "Resume when you want to plan a jump.");
 
+    // After the stack is trained down: the refill first (it fills to max rather than adding), then
+    // energy drinks (they add, up to the 1,000 cap), then train again.
     const refillLeft = plan.refillUse && !plan.refillDone;
+    const after = [...(refillLeft ? ["use your energy refill"] : []), ...(drinkList ? [`drink ${drinkList}`] : [])];
     if (track.boostAt) {
       if (plan.xtcUse && !track.ecstasyAt) {
         if (L.drugLeft > 0) return S("train", "Ecstasy is blocked", `Your drug cooldown has ${HJ.dur(L.drugLeft)} left, so Ecstasy can't be taken in time. Train now before the tick in ${tick}.`, { urgent: true });
-        return S("ecstasy", "Take Ecstasy now", `It doubles your current happy. Then train${refillLeft ? " down to zero" : ""}. Tick in ${tick}.`, { urgent: true });
+        return S("ecstasy", "Take Ecstasy now", `It doubles your current happy. Then train${after.length ? " down to zero" : ""}. Tick in ${tick}.`, { urgent: true });
       }
-      // A refill fills the bar to max instead of adding to it, so it only comes once the stack is trained down.
-      if (L.energy >= gym.energy) return S("train", "Train now", `Spend all ${HJ.num(L.energy)} energy before the tick in ${tick}.${refillLeft ? " Then use your energy refill and train again." : ""}`, { urgent: true });
-      if (refillLeft) return S("refill", "Use your energy refill", `You're out of energy, so it fills you back to ${HJ.num(L.maxEnergy)}. Then train again before the tick in ${tick}.`, { urgent: true });
+      if (L.energy >= gym.energy) return S("train", "Train now", `Spend all ${HJ.num(L.energy)} energy before the tick in ${tick}.${after.length ? ` Then ${after.join(", then ")} and train again.` : ""}`, { urgent: true });
+      if (refillLeft) return S("refill", "Use your energy refill", `You're out of energy, so it fills you back to ${HJ.num(L.maxEnergy)}. Then ${drinkList ? `drink ${drinkList} and ` : ""}train again before the tick in ${tick}.`, { urgent: true });
+      if (drinkList) return S("drink", "Drink your energy cans", `Drink ${drinkList} (+${HJ.num(plan.energyGain)} energy), then train again before the tick in ${tick}.`, { urgent: true });
       return S("done", "Jump done", "You're out of energy. Nice work.");
     }
 
@@ -265,7 +305,7 @@ const HJP = (() => {
     const steps = [];
     if (boostList) steps.push(`use ${boostList}`);
     if (plan.xtcUse) steps.push("take Ecstasy");
-    if (plan.refillUse) steps.push("train down to zero", "use your energy refill", "train again");
+    if (after.length) steps.push("train down to zero", ...after, "train again");
     else steps.push("train everything");
     const blocker = plan.shortages.find(r => r.key === "edvd" || r.key === "ecstasy");
     if (!boostList && !plan.xtcUse) {
@@ -287,13 +327,20 @@ const HJP = (() => {
     const add = (status, title, detail = "") => steps.push({ status, title, detail });
     const chosen = "You chose to go without";
 
+    // One step per Xanax, with runs in the same state merged ("Xanax 1–2").
     const xan = row("xanax");
     const xanTotal = Math.max(settings.xanaxCount, plan.stacked);
+    const xanStep = i => i <= plan.stacked ? ["done", "Taken"]
+      : boosted ? ["skip", "Not taken before the jump started"]
+      : i <= plan.stacked + plan.xanUse ? ["todo", i === plan.stacked + 1 ? "+250 energy. Don't spend energy while stacking." : "+250 energy each"]
+      : ["skip", skips.xanax ? chosen : `Not in your inventory (you own ${HJ.num(xan.have)}, short ${xan.short})`];
     for (let i = 1; i <= xanTotal; i++) {
-      if (i <= plan.stacked) add("done", `Xanax ${i}`, "Taken");
-      else if (boosted) add("skip", `Xanax ${i}`, "Not taken before the jump started");
-      else if (i <= plan.stacked + plan.xanUse) add("todo", `Xanax ${i}`, "+250 energy. Don't spend energy while stacking.");
-      else add("skip", `Xanax ${i}`, skips.xanax ? chosen : `Not in your inventory (you own ${HJ.num(xan.have)}, short ${xan.short})`);
+      const [status, detail] = xanStep(i);
+      let j = i;
+      // The next Xanax keeps its own line so it stands out.
+      if (!(status === "todo" && i === plan.stacked + 1)) while (j < xanTotal && xanStep(j + 1)[0] === status) j++;
+      add(status, j > i ? `Xanax ${i}–${j}` : `Xanax ${i}`, detail);
+      i = j;
     }
     const xanLeft = boosted ? 0 : plan.xanUse;
 
@@ -304,10 +351,10 @@ const HJP = (() => {
         add(xanLeft || L.drugLeft > 0 ? "todo" : "done", "Drug cooldown clears",
           xanLeft ? "Ecstasy needs it clear, so wait after your last Xanax" : L.drugLeft > 0 ? `${HJ.dur(L.drugLeft)} left` : "Clear for Ecstasy");
       }
-      add("todo", "Wait for a quarter tick", "Boost right after one so the extra happy lasts the full 15 minutes");
+      add("todo", "Wait for a quarter tick", "Boost right after one so it lasts the full 15 minutes");
 
       const dvd = row("edvd");
-      if (settings.edvdCount > 0) {
+      if (settings.useEdvd && settings.edvdCount > 0) {
         // Only name the limits that actually cut the count.
         const why = [];
         const room = dvd.note ? Number((dvd.note.match(/\d+/) || [])[0]) : Infinity;
@@ -321,8 +368,7 @@ const HJP = (() => {
       const uses = kind => plan.boosterUses.filter(b => b.kind === kind);
       for (const b of uses("candy")) add("todo", `${b.n}× ${b.name}`, `+${HJ.num(b.n * b.each)} happy`);
       const candy = row("candy");
-      if (settings.useCandy && candy && !uses("candy").length) add("skip", "Candy", skips.candy ? chosen : "None you own fits the booster cooldown room left");
-      for (const b of uses("energy")) add("todo", `${b.n}× ${b.name}`, `+${HJ.num(b.n * b.each)} energy`);
+      if (settings.useCandy && candy && !uses("candy").length) add("skip", "Candy", skips.candy ? chosen : candy.have === 0 ? "None in your inventory" : "No booster cooldown room left");
     }
 
     if (settings.useEcstasy) {
@@ -333,26 +379,30 @@ const HJP = (() => {
       else if (boosted && L.drugLeft > 0) add("skip", "Ecstasy", `Drug cooldown has ${HJ.dur(L.drugLeft)} left, so it can't be taken in time`);
       else add("todo", "Take Ecstasy", `Doubles your happy${xtc.have === null ? "" : ` (you own ${xtc.have})`}`);
     }
-    // A refill fills the bar to max instead of adding to it, so it sits between training the stack down and training again.
+    // After the stack is trained down: the refill first (it fills to max rather than adding to what's left),
+    // then energy drinks (they add, up to the 1,000 cap), then train again.
     const best = HJ.project(ctx.snap, ctx.gymsCache, settings, plan.happy, plan.energy).best;
     const gain = best ? ` in ${HJ.cap(best.stat)}, about +${HJ.num(best.total)} ${boosted ? "from the energy left" : "for the whole jump"}` : "";
     const trainCost = HJ.gymInfo(ctx.snap, ctx.gymsCache, settings).energy;
-    if (plan.refillDone) {
-      add("done", "Train down to zero", "Stack spent");
-      add("done", "Energy refill", "Used");
-      add("todo", "Train again", `${HJ.num(L.energy)} energy${gain}. Finish before the next tick.`);
-    } else if (plan.refillUse) {
-      const spent = boosted && L.energy < trainCost;
-      add(spent ? "done" : "todo", "Train down to zero", spent ? "Stack spent"
-        : `${HJ.num(plan.energy - L.maxEnergy)} energy at ${HJ.num(plan.happy)} happy. The refill fills you to max rather than adding, so use it only once you're out.`);
-      add("todo", "Use your energy refill", `Fills you back to ${HJ.num(L.maxEnergy)} energy`);
-      add("todo", "Train again", `${HJ.num(L.maxEnergy)} energy${gain}. Finish before the next tick.`);
+    const drinks = plan.boosterUses.filter(b => b.kind === "energy");
+    const drinkE = drinks.reduce((a, b) => a + b.n * b.each, 0);
+    const refillLeft = plan.refillUse && !plan.refillDone;
+    if (!plan.refillUse && !drinks.length && !track.drinksAt) {
+      add("todo", "Train", `${HJ.num(plan.energy)} energy at ${HJ.num(plan.happy)} happy${gain}, before the tick`);
     } else {
-      add("todo", "Train", `${HJ.num(plan.energy)} energy at ${HJ.num(plan.happy)} happy${gain}. Finish before the next tick.`);
-      if (settings.useRefill) {
-        const refill = row("refill");
-        add("skip", "Energy refill", skips.refill ? chosen : refill.note === "used today" ? "Already used today" : refill.note ? `Not enough points (${refill.note})` : "Not available");
-      }
+      const spent = plan.refillDone || !!track.drinksAt || (boosted && L.energy < trainCost);
+      add(spent ? "done" : "todo", "Train down to zero", spent ? "Stack spent"
+        : `${HJ.num(plan.energy - (refillLeft ? L.maxEnergy : 0) - drinkE)} energy at ${HJ.num(plan.happy)} happy. ` +
+          (refillLeft ? "The refill fills to max, so spend it all first." : "Cans stop at 1,000 energy, so drink them once you're low."));
+      if (plan.refillDone) add("done", "Energy refill", "Used");
+      else if (refillLeft) add("todo", "Use your energy refill", `Fills you back to ${HJ.num(L.maxEnergy)} energy`);
+      if (track.drinksAt) add("done", "Energy drinks", "Drunk");
+      for (const b of drinks) add("todo", `Drink ${b.n}× ${b.name}`, `+${HJ.num(b.n * b.each)} energy${refillLeft ? ", after the refill" : ""}`);
+      add("todo", "Train again", `${HJ.num(spent ? plan.energy : (refillLeft ? L.maxEnergy : 0) + drinkE)} energy${gain}, before the tick`);
+    }
+    if (settings.useRefill && !plan.refillUse) {
+      const refill = row("refill");
+      add("skip", "Energy refill", skips.refill ? chosen : refill.note === "used today" ? "Already used today" : refill.note ? `Not enough points (${refill.note})` : "Not available");
     }
 
     const next = steps.find(s => s.status === "todo" || s.status === "partial");

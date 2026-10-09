@@ -101,9 +101,16 @@ h1 { margin: 0; font-size: 16px; font-weight: 800; white-space: nowrap; }
 body.plan-mode .plan-view { display: block; }
 body.plan-mode #phase, body.plan-mode .card:not(.plan-view) { display: none; }
 .icon-btn[aria-pressed="true"] { border-color: var(--pink); color: var(--pink); }
-.plan-head { margin: 0 0 4px; font-size: 13px; color: var(--muted); font-weight: 500; }
-.steps { list-style: none; margin: 0; padding: 0; }
-.steps li { display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.plan-head { margin: 0 0 4px; font-size: 12px; color: var(--muted); }
+.seg { display: flex; gap: 4px; margin-bottom: 6px; }
+.seg button { flex: 1; padding: 3px 0; border-radius: 6px; border: 1px solid var(--line); background: none; color: var(--muted); font-size: 12px; }
+.seg button[aria-selected="true"] { border-color: var(--pink); color: var(--pink); }
+.plan-view .pane-shop { display: none; }
+.plan-view[data-tab="shop"] .pane-shop { display: block; }
+.plan-view[data-tab="shop"] .pane-steps { display: none; }
+/* Capped so the popup stays under Chrome's 600px limit; only a long plan scrolls, inside the list. */
+.steps { list-style: none; margin: 0; padding: 0; max-height: 430px; overflow-y: auto; }
+.steps li { display: flex; gap: 8px; padding: 2px 0; border-bottom: 1px solid var(--line); line-height: 1.3; }
 .steps li:last-child { border-bottom: 0; }
 .steps .mark { flex: 0 0 14px; text-align: center; color: var(--muted); }
 .steps b { display: block; font-weight: 600; }
@@ -114,6 +121,15 @@ body.plan-mode #phase, body.plan-mode .card:not(.plan-view) { display: none; }
 .steps [data-status="skip"] b { color: var(--muted); text-decoration: line-through; }
 .steps [data-status="skip"] small { color: var(--amber); }
 .steps [data-next] .mark, .steps [data-next] b { color: var(--pink); }
+
+.shop-opts { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+.shop-opts label { display: inline-flex; gap: 4px; align-items: center; color: var(--text); cursor: pointer; }
+.shop-opts input { accent-color: var(--pink); margin: 0; }
+.shop { list-style: none; margin: 0; padding: 0; }
+.shop li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--line); }
+.shop li:last-child { border-bottom: 0; }
+.shop small { color: var(--muted); font-size: 11.5px; }
+.shop .cost { white-space: nowrap; color: var(--amber); }
 
 .controls { display: flex; justify-content: space-between; margin-top: 6px; }
 .text-btn { background: none; border: 0; padding: 0; color: var(--muted); font-size: 12px; text-decoration: underline; }

@@ -13,6 +13,7 @@ const HJ = (() => {
     apiKey: "",
     xanaxCount: 4,
     edvdCount: 4,
+    useEdvd: true,
     useEcstasy: true,
     useRefill: true,
     extraEnergy: 0,

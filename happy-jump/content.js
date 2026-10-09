@@ -49,7 +49,7 @@ window.addEventListener("unhandledrejection", e => HJLog.error("gym-panel", `Unh
     const L = HJ.live(snapshot);
     const { js: p, ad: st } = HJP.fullState({ snap: snapshot, settings, inv: state.inventory, catalog: state.catalog,
       skips: state.skips || {}, track: state.jumpTrack || {}, gymsCache }, state.addictLearn);
-    root.dataset.k = { ecstasy: "active", refill: "active", train: "active", ready: "ready", stackTake: "ready",
+    root.dataset.k = { ecstasy: "active", refill: "active", drink: "active", train: "active", ready: "ready", stackTake: "ready",
       stackWait: "stacking", waitDrug: "waitEcstasy", blocked: "waitEcstasy", rehab: "waitEcstasy" }[p.key] || "idle";
     $(".hjh-phase").textContent = p.title;
     $(".hjh-action").textContent = p.action;

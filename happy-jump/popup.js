@@ -5,9 +5,9 @@ let state = null;
 let lastRowsKey = "";
 
 // Colour of the step card for each step.
-const PHASE_TONE = { ecstasy: "active", refill: "active", train: "active", ready: "ready", stackTake: "ready",
+const PHASE_TONE = { ecstasy: "active", refill: "active", drink: "active", train: "active", ready: "ready", stackTake: "ready",
   stackWait: "waiting", waitDrug: "waiting", blocked: "waiting", rehab: "waiting" };
-const TICK_STEPS = ["ready", "ecstasy", "refill", "train", "waitDrug"];
+const TICK_STEPS = ["ready", "ecstasy", "refill", "drink", "train", "waitDrug"];
 
 async function setSkip(key, on) {
   const skips = { ...(state.skips || {}) };
@@ -226,7 +226,7 @@ function planText() {
   }
   const best = HJ.project(snapshot, state.gymsCache, settings, plan.happy, plan.energy).best;
   lines.push("", `Jump: ${HJ.num(plan.happy)} happy · ${HJ.num(plan.energy)} energy${best ? ` → ${HJ.cap(best.stat)} +${HJ.num(best.total)}` : ""}`);
-  if (plan.missingCost > 0) lines.push(`Missing items cost ~$${HJ.num(plan.missingCost)}`);
+  if (plan.shopping.length) lines.push(`To buy: ${plan.shopping.map(s => `${s.qty}× ${s.name}`).join(", ")} (~$${HJ.num(plan.shoppingCost)})`);
   if (ad.pct !== null) lines.push(`Addiction ${ad.pct}% · OD risk ${(ad.odStack * 100).toFixed(1)}%`);
   return lines.join("\n");
 }
@@ -258,11 +258,37 @@ function renderSteps() {
     ol.appendChild(li);
   }
   const dropped = steps.filter(s => s.status === "skip" || s.status === "partial").length;
+  renderShopping(plan);
   $("stepsNote").textContent = [
-    dropped ? `${dropped} step${dropped === 1 ? " is" : "s are"} reduced or dropped for what you have. Use Skip/Undo on the main view to change that.` : "",
-    plan.missingCost > 0 ? `Buying the missing items costs ~$${HJ.num(plan.missingCost)}.` : ""
+    dropped ? `${dropped} reduced or dropped. Change with Skip/Undo on the main view.` : ""
   ].filter(Boolean).join(" ");
 }
+
+function renderShopping(plan) {
+  const { settings } = state;
+  $("optEdvd").checked = !!settings.useEdvd;
+  $("optDrinks").checked = !!settings.useEnergyItems;
+  $("optCandy").checked = !!settings.useCandy;
+  const ul = $("shopList");
+  ul.textContent = "";
+  for (const s of plan.shopping) {
+    const li = document.createElement("li");
+    const what = document.createElement("span");
+    what.append(`${s.qty}× ${s.name} `, Object.assign(document.createElement("small"), { textContent: s.why }));
+    li.append(what, Object.assign(document.createElement("span"), { className: "cost", textContent: s.cost ? `~$${HJ.num(s.cost)}` : "–" }));
+    ul.appendChild(li);
+  }
+  $("shopNote").textContent = !plan.inventoryKnown ? "Waiting for your inventory to work out what to buy."
+    : plan.shopping.length ? `Total ~$${HJ.num(plan.shoppingCost)} at market value${plan.money !== null ? ` (you have $${HJ.num(plan.money)})` : ""}.`
+    : "Nothing to buy: you have everything for this plan.";
+}
+const setOpt = (key, on) => {
+  chrome.storage.local.set({ settings: { ...state.settings, [key]: on } });
+  chrome.runtime.sendMessage({ type: "refresh" });
+};
+$("optEdvd").onchange = e => setOpt("useEdvd", e.target.checked);
+$("optDrinks").onchange = e => setOpt("useEnergyItems", e.target.checked);
+$("optCandy").onchange = e => setOpt("useCandy", e.target.checked);
 
 function setPlanMode(on) {
   document.body.classList.toggle("plan-mode", on);
@@ -274,6 +300,16 @@ function setPlanMode(on) {
   if (state && state.snapshot && state.settings.apiKey) render();
 }
 $("viewPlan").onclick = () => setPlanMode(!document.body.classList.contains("plan-mode"));
+
+function setPlanTab(tab) {
+  $("planView").dataset.tab = tab;
+  $("tabSteps").setAttribute("aria-selected", String(tab === "steps"));
+  $("tabShop").setAttribute("aria-selected", String(tab === "shop"));
+  try { localStorage.setItem("hjPlanTab", tab); } catch (e) { /* storage unavailable: just don't remember */ }
+}
+$("tabSteps").onclick = () => setPlanTab("steps");
+$("tabShop").onclick = () => setPlanTab("shop");
+try { setPlanTab(localStorage.getItem("hjPlanTab") === "shop" ? "shop" : "steps"); } catch (e) { setPlanTab("steps"); }
 try { if (localStorage.getItem("hjPlanMode")) setPlanMode(true); } catch (e) { /* ignore */ }
 
 // Storage changes (new data, skips, settings) re-render; the timer keeps countdowns live.
