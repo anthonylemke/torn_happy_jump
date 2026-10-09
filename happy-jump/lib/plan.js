@@ -59,7 +59,44 @@ const HJP = (() => {
     }));
   }
 
-  /** Inventory totals keyed by lower-case name, joined to the catalog. */
+  // Log entries that move items in or out of your inventory, by title. Torn renumbers log types
+  // (old ids live on as "(old)" or "(legacy)"), so ids are looked up from torn/logtypes by these titles.
+  const LOG_GAIN = ["item market buy", "bazaar buy", "item shop buy", "item abroad buy", "item receive",
+    "trade items incoming", "auction house item win", "item market remove", "bazaar remove", "display remove"];
+  const LOG_LOSE = ["item use xanax", "item use xanax overdose", "item use ecstasy", "item use ecstasy overdose",
+    "item use erotic dvd", "item use candy", "item use energy drink", "item send", "trade items outgoing",
+    "item market add", "bazaar add", "display add", "item shop sell"];
+
+  /** Items in a log entry's data: `items: [{id, qty}]` (market, bazaar) or `item` + `quantity` (abroad, use). */
+  function logItems(d) {
+    if (Array.isArray(d.items)) return d.items.map(x => ({ id: String(x.id), qty: Number(x.qty ?? x.quantity ?? x.amount ?? 1) || 0 }));
+    if (d.item !== undefined && d.item !== null) return [{ id: String(d.item), qty: Number(d.quantity ?? d.qty ?? d.amount ?? 1) || 0 }];
+    return [];
+  }
+
+  /** Item changes from log entries made after Torn's cached inventory copy of each item's category. */
+  function logDelta(entries, sign, catalog, cachedAt) {
+    const delta = {};
+    const unparsed = [];
+    let applied = 0;
+    for (const e of entries) {
+      const s = sign[e.details && e.details.id];
+      const d = e.data || {};
+      if (!s || d.faction) continue; // items used from the faction armory never touch your inventory
+      const list = logItems(d);
+      if (!list.length) unparsed.push(e);
+      for (const { id, qty } of list) {
+        const it = catalog && catalog.items[id];
+        const since = it && cachedAt && cachedAt[it.type];
+        if (!since || e.timestamp * 1000 <= since) continue;
+        delta[id] = (delta[id] || 0) + s * qty;
+        applied++;
+      }
+    }
+    return { delta, applied, unparsed };
+  }
+
+  /** Inventory totals keyed by lower-case name, joined to the catalog, plus changes logged since Torn's copy. */
   function ownedMap(inv, catalog) {
     if (!inv || !inv.ok) return null;
     const m = {};
@@ -67,6 +104,10 @@ const HJP = (() => {
       const name = (x.name || (catalog && catalog.items[x.id] && catalog.items[x.id].name) || "").toLowerCase();
       if (!name) continue;
       m[name] = (m[name] || 0) + x.amount;
+    }
+    for (const [id, n] of Object.entries((inv.log && inv.log.delta) || {})) {
+      const it = catalog && catalog.items[id];
+      if (it) m[it.name.toLowerCase()] = Math.max(0, (m[it.name.toLowerCase()] || 0) + n);
     }
     return m;
   }
@@ -239,6 +280,6 @@ const HJP = (() => {
     return { ad, js: jumpState({ ...base, addictStatus: ad }) };
   }
 
-  return { reduceCatalog, extractInventory, buildPlan, jumpState, fullState, classify };
+  return { reduceCatalog, extractInventory, buildPlan, jumpState, fullState, classify, LOG_GAIN, LOG_LOSE, logDelta };
 })();
 if (typeof self !== "undefined") self.HJP = HJP;

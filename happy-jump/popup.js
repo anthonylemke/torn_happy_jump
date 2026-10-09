@@ -71,6 +71,7 @@ function render() {
   $("refill").title = plan.points !== null ? `${HJ.num(plan.points)} points` : "";
 
   renderRows(plan);
+  renderInvAge();
 
   // Totals for the jump you can actually do
   const proj = HJ.project(snapshot, state.gymsCache, settings, plan.happy, plan.energy);
@@ -127,6 +128,28 @@ function renderRows(plan) {
     : inv && inv.error
     ? `Couldn't read your inventory (${inv.error}). Planning as if you have everything; skip anything you don't.`
     : "Reading your inventory…";
+}
+
+// Torn only refreshes its inventory copy hourly. Buys and uses since then come from your log when
+// the key allows it; otherwise say how stale the counts are.
+const INV_CACHE_MS = 60 * 60 * 1000;
+function renderInvAge() {
+  const inv = state.inventory;
+  const times = Object.values((inv && inv.ok && inv.cachedAt) || {});
+  const log = inv && inv.log;
+  let text = "";
+  if (log && !log.error) {
+    if (log.applied) text = `Includes ${log.applied} buy${log.applied === 1 ? "" : "s"}/use${log.applied === 1 ? "" : "s"} from your log since Torn's hourly inventory update.`;
+  } else if (times.length) {
+    const oldest = Math.min(...times);
+    const age = Date.now() - oldest;
+    if (age > 2 * 60 * 1000) {
+      const next = oldest + INV_CACHE_MS - Date.now();
+      text = `Torn updates inventory hourly: counts are from ${Math.round(age / 60000)}m ago, next update ${next > 60000 ? `in ~${Math.ceil(next / 60000)}m` : "soon"}.` +
+        (log && log.denied ? " A Full Access key shows buys and uses right away." : " New buys show up then.");
+    }
+  }
+  $("invAge").textContent = text;
 }
 
 const cell = text => Object.assign(document.createElement("td"), { textContent: text });

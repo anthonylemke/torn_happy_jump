@@ -73,6 +73,7 @@ h1 { margin: 0; font-size: 16px; font-weight: 800; white-space: nowrap; }
 .note { margin: 4px 0 0; font-size: 12px; color: var(--soft); }
 .note:empty { display: none; }
 .note.warn { color: var(--amber); margin: 0 0 8px; }
+#invAge { margin: 0 0 8px; }
 
 /* Item plan */
 .items { width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 6px; }

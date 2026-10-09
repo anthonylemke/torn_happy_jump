@@ -243,7 +243,7 @@ const HJ = (() => {
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
   async function getAll() {
-    const data = await chrome.storage.local.get(["settings", "snapshot", "gymsCache", "lastError", "addictLearn", "inventory", "catalog", "skips", "jumpTrack", "keyInfo"]);
+    const data = await chrome.storage.local.get(["settings", "snapshot", "gymsCache", "lastError", "addictLearn", "inventory", "catalog", "skips", "jumpTrack", "keyInfo", "logTypes"]);
     data.settings = { ...DEFAULT_SETTINGS, ...(data.settings || {}) };
     return data;
   }

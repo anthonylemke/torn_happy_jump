@@ -82,6 +82,10 @@ async function loadDev() {
     ["Browser", navigator.userAgent.match(/(Edg|Chrome|Brave)\/[\d.]+/g)?.join(" ") || navigator.userAgent],
     ["Inventory category spelling", Number.isInteger(st.invCatStyle) ? `"${styles[st.invCatStyle]}" (style #${st.invCatStyle})` : "Not found yet"],
     ["Last inventory read", inv ? `${inv.ok ? "OK" : "Failed"}, ${inv.items.length} rows, ${new Date(inv.at).toLocaleTimeString()}${inv.error ? ` — ${inv.error}` : ""}${inv.partial && inv.partial.length ? ` — partial: ${inv.partial.join("; ")}` : ""}` : "Never"],
+    ["Torn inventory copy (cached 1h)", inv && inv.cachedAt && Object.keys(inv.cachedAt).length
+      ? Object.entries(inv.cachedAt).map(([c, t]) => `${c} ${new Date(t).toLocaleTimeString()}`).join(", ") : "Unknown"],
+    ["Item log since then", !inv || !inv.log ? "Not read" : inv.log.error ? `${inv.log.denied ? "Needs a Full Access key" : "Failed"} — ${inv.log.error}`
+      : `${inv.log.applied} change(s)${Object.keys(inv.log.delta).length ? ": " + Object.entries(inv.log.delta).map(([id, n]) => `${(st.catalog && st.catalog.items[id] || {}).name || id} ${n > 0 ? "+" : ""}${n}`).join(", ") : ""}`],
     ["Item catalog", st.catalog ? `${Object.keys(st.catalog.items).length} usable items, ${new Date(st.catalog.at).toLocaleString()}` : "Not loaded"],
     ["Key info", st.keyInfo ? (st.keyInfo.error || st.keyInfo.raw) : "Not checked"],
     ["Last update", st.snapshot ? new Date(st.snapshot.at).toLocaleTimeString() : "Never"],

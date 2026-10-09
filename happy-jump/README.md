@@ -22,7 +22,7 @@ A Chrome / Edge / Brave extension that reads your Torn API data and tells you wh
 It never clicks, buys, trains or uses items. Torn allows tools that read the API and display information, not ones that act for you.
 
 ## Notes
-- Inventory comes from Torn's API v2 `user/inventory`. If it can't be read, the plan assumes you have everything and you can **Skip** anything you don't have.
+- Inventory comes from Torn's API v2 `user/inventory`, which Torn caches for up to an hour per category. With a **Full Access** key, the extension reads your log (buys, item market and bazaar listings, trades, sends and uses) to keep counts current in between. With a Limited key, new buys and uses can take up to an hour to show; the popup shows how old the counts are. If your inventory can't be read, the plan assumes you have everything and you can **Skip** anything you don't have.
 - Candy and energy drink values are read from each item's description in Torn's item list. Booster cap (24h), refill cost (25 points), overdose chance (2%) and the education kick line (6%) are adjustable in settings.
 - Gains are estimates from Vladar's gym formula with an approximate happy loss per train.
 - Your key stays in this browser and is only sent to api.torn.com.

@@ -110,13 +110,19 @@ const INV_CATEGORIES = ["Drug", "Booster", "Candy", "Energy Drink"];
 // Spellings to try, in case the endpoint wants a different format. The one that works is remembered.
 const CAT_STYLES = [c => c, c => c.toLowerCase(), c => c.replace(/\s+/g, ""), c => c.toLowerCase().replace(/\s+/g, "_")];
 
+// Torn caches user/inventory for an hour per category; `inventory.timestamp` is when that copy was taken.
+// `timestamp` only skips the 30s service cache. It isn't sent on other calls because there it can mean
+// "data as of this time".
 async function fetchCategory(key, cat, style) {
   const items = [];
+  let cachedAt = null;
   for (let page = 0, offset = 0; page < 5; page++, offset += 100) {
-    const j = await apiGet(`/v2/user/inventory?cat=${encodeURIComponent(CAT_STYLES[style](cat))}&limit=100&offset=${offset}`, key, { quiet: true });
+    const j = await apiGet(`/v2/user/inventory?cat=${encodeURIComponent(CAT_STYLES[style](cat))}&limit=100&offset=${offset}&timestamp=${Math.floor(Date.now() / 1000)}`, key, { quiet: true });
     const got = HJP.extractInventory(j);
     if (page === 0) {
-      HJLog.debug("inventory", `${cat}: ${got.length} item rows`, HJLog.sample(j, 800));
+      const ts = j && j.inventory && Number(j.inventory.timestamp);
+      if (ts > 0) cachedAt = ts * 1000;
+      HJLog.debug("inventory", `${cat}: ${got.length} item rows${cachedAt ? `, Torn copy from ${Math.round((Date.now() - cachedAt) / 60000)}m ago` : ""}`, HJLog.sample(j, 800));
       // A non-trivial response with nothing parsed means the response shape has changed,
       // unless it's an empty category (an empty items list, or a total of 0).
       const empty = (j && j._metadata && j._metadata.total === 0) || (j && j.inventory && Array.isArray(j.inventory.items) && !j.inventory.items.length);
@@ -125,7 +131,7 @@ async function fetchCategory(key, cat, style) {
     items.push(...got);
     if (got.length < 100) break;
   }
-  return items;
+  return { items, cachedAt };
 }
 
 async function fetchInventory(key) {
@@ -133,13 +139,16 @@ async function fetchInventory(key) {
   const items = [];
   const failed = [];
   const failedCats = [];
+  const cachedAt = {};
   let style = Number.isInteger(invCatStyle) ? invCatStyle : null;
   for (const cat of INV_CATEGORIES) {
     const tryStyles = style !== null ? [style, ...CAT_STYLES.keys()].filter((v, i, a) => a.indexOf(v) === i) : [...CAT_STYLES.keys()];
     let ok = false, lastErr = "";
     for (const st of tryStyles) {
       try {
-        items.push(...await fetchCategory(key, cat, st));
+        const got = await fetchCategory(key, cat, st);
+        items.push(...got.items);
+        if (got.cachedAt) cachedAt[cat] = got.cachedAt;
         if (style !== st) {
           style = st;
           await chrome.storage.local.set({ invCatStyle: st });
@@ -159,7 +168,41 @@ async function fetchInventory(key) {
     return { ok: false, at: Date.now(), error: failed[0], items: [] };
   }
   // Some categories can fail (e.g. empty ones) without breaking the rest. Items in them count as unknown, not zero.
-  return { ok: true, at: Date.now(), items, partial: failed, failedCats };
+  return { ok: true, at: Date.now(), items, partial: failed, failedCats, cachedAt };
+}
+
+// Torn returns an empty log, not an error, when asked for more than 10 log ids at once.
+const LOG_IDS_PER_CALL = 10;
+
+/** Buys and uses since Torn's cached inventory copy, read from your log. Needs a Full Access key. */
+async function fetchItemLog(key, cachedAt, catalog, sign) {
+  const times = Object.values(cachedAt || {});
+  const ids = Object.keys(sign || {});
+  if (!times.length || !ids.length) return null;
+  const from = Math.floor(Math.min(...times) / 1000);
+  const entries = new Map();
+  try {
+    for (let i = 0; i < ids.length; i += LOG_IDS_PER_CALL) {
+      const batch = ids.slice(i, i + LOG_IDS_PER_CALL).join(",");
+      let to = null;
+      for (let page = 0; page < 5; page++) {
+        const j = await apiGet(`/v2/user/log?log=${batch}&from=${from}${to ? `&to=${to}` : ""}&limit=100`, key, { quiet: true });
+        const log = j.log || [];
+        for (const e of log) entries.set(e.id, e);
+        if (log.length < 100) break;
+        to = Math.min(...log.map(e => e.timestamp));
+      }
+    }
+  } catch (e) {
+    const denied = /error 16\b/.test(e.message); // key access level too low
+    (denied ? HJLog.debug : HJLog.warn)("itemlog", `Item log unavailable: ${e.message}`);
+    return { at: Date.now(), denied, error: e.message };
+  }
+  const { delta, applied, unparsed } = HJP.logDelta([...entries.values()], sign, catalog, cachedAt);
+  if (unparsed.length) HJLog.warn("itemlog", `${unparsed.length} log entries without items understood`, HJLog.sample(unparsed.slice(0, 3)));
+  HJLog.debug("itemlog", `${entries.size} item log entries since ${new Date(from * 1000).toLocaleTimeString()}, ${applied} applied`,
+    Object.entries(delta).map(([id, n]) => `${catalog.items[id].name} ${n > 0 ? "+" : ""}${n}`).join(", "));
+  return { at: Date.now(), delta, applied };
 }
 
 // Alarms, the popup, settings and the gym page can all ask for a refresh at once. Share one run
@@ -208,9 +251,25 @@ async function doRefresh(force) {
         }
       } catch (e) { HJLog.error("catalog", `Item catalog failed: ${e.message}`); }
     }
+    if (!st.logTypes || Date.now() - st.logTypes.at > DAY_MS) {
+      try {
+        const sign = {};
+        for (const t of (await apiGet("/v2/torn/logtypes", key)).logtypes || []) {
+          const title = String(t.title).toLowerCase();
+          if (HJP.LOG_GAIN.includes(title)) sign[t.id] = 1;
+          else if (HJP.LOG_LOSE.includes(title)) sign[t.id] = -1;
+        }
+        updates.logTypes = { at: Date.now(), sign };
+        HJLog.info("itemlog", `Item log types: ${Object.keys(sign).length} found`, sign);
+      } catch (e) { HJLog.error("itemlog", `Log type list failed: ${e.message}`); }
+    }
     const active = st.jumpTrack && (st.jumpTrack.boostAt || st.jumpTrack.stackXans);
     const invAge = st.inventory ? Date.now() - st.inventory.at : Infinity;
-    if (force || invAge > (active ? INVENTORY_ACTIVE_MS : INVENTORY_EVERY_MS)) updates.inventory = await fetchInventory(key);
+    if (force || invAge > (active ? INVENTORY_ACTIVE_MS : INVENTORY_EVERY_MS)) {
+      const inv = updates.inventory = await fetchInventory(key);
+      const catalog = updates.catalog || st.catalog, logTypes = updates.logTypes || st.logTypes;
+      if (inv.ok && catalog && logTypes) inv.log = await fetchItemLog(key, inv.cachedAt, catalog, logTypes.sign);
+    }
 
     const snapshot = { at: Date.now(), user, addict };
     updates.snapshot = snapshot;
