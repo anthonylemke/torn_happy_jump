@@ -10,6 +10,7 @@
     <h1>Happy jump</h1>
     <p class="sub" id="who">Loading…</p>
     <div class="top-actions">
+      <button id="viewPlan" class="icon-btn" title="Show plan steps" aria-label="Show plan steps" aria-pressed="false">☰</button>
       <button id="refresh" class="icon-btn" title="Refresh from Torn API" aria-label="Refresh">↻</button>
       <button id="openSettings" class="icon-btn" title="Settings" aria-label="Settings">⚙</button>
     </div>
@@ -53,6 +54,12 @@
       <p class="note" id="planNote"></p>
     </section>
 
+    <section class="card plan-view" id="planView">
+      <h2 class="plan-head">Plan steps</h2>
+      <ol class="steps" id="steps"></ol>
+      <p class="note" id="stepsNote"></p>
+    </section>
+
     <section class="card risk" id="risk">
       <p class="cds">Addiction <b id="addPct">–</b> · Safe Xanax <b id="safeXan">–</b> · OD risk <b id="odStack">–</b></p>
       <p class="note" id="riskMsg"></p>
@@ -61,6 +68,7 @@
     <footer class="controls">
       <button id="pause" class="text-btn"></button>
       <button id="resetSkips" class="text-btn" hidden>Undo "proceed without"</button>
+      <button id="copyPlan" class="text-btn" title="Copy your step and plan as text to paste anywhere">Copy plan</button>
     </footer>
   </main>
   <script src="lib/log.js"></script>

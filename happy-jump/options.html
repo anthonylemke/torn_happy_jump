@@ -72,9 +72,18 @@
   </section>
 
   <section>
-    <h2>Alerts and overlay</h2>
+    <h2>Alerts and display</h2>
     <label class="check"><input id="notifyDrug" type="checkbox"> Notify me when it's time for my next step</label>
     <label class="check"><input id="showOverlay" type="checkbox"> Show the info panel on the Torn gym page</label>
+    <div class="grid" style="margin-top: 12px">
+      <div><label for="timeDisplay">Show clock times in</label>
+        <select id="timeDisplay">
+          <option value="tct">Torn City Time (TCT, same as UTC)</option>
+          <option value="local">My local time</option>
+        </select>
+        <p class="hint">Used for cooldown end times in "Copy plan".</p>
+      </div>
+    </div>
   </section>
 
   <div class="actions">

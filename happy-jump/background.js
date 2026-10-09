@@ -306,7 +306,7 @@ function updateTrack(track, prevSnap, snap, trainCost) {
     const nowCd = (snap.user.cooldowns || {}).drug || 0;
     const drugTaken = nowCd > prevCd - elapsed + 60;
     if (drugTaken) {
-      if (L.energy - P.energy >= 200) { t.stackXans += 1; HJLog.info("track", `Xanax detected (${t.stackXans} in stack), energy ${P.energy} → ${L.energy}`); }
+      if (L.energy - P.energy >= 200) { t.stackXans += 1; HJLog.info("track", `Xanax detected (${t.stackXans} taken this stack), energy ${P.energy} → ${L.energy}`); }
       else if (L.happy > L.maxHappy && L.happy >= P.happy * 1.6) { t.ecstasyAt = Date.now(); HJLog.info("track", `Ecstasy detected, happy ${P.happy} → ${L.happy}`); }
       else HJLog.info("track", "Drug taken (not Xanax by energy change)", { energy: [P.energy, L.energy], happy: [P.happy, L.happy] });
     }

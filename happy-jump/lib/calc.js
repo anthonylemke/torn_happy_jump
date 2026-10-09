@@ -33,6 +33,7 @@ const HJ = (() => {
     useEnergyItems: true,
     refillPointCost: 25,
     paused: false,
+    timeDisplay: "tct",
     devVerbose: false
   };
 
@@ -239,6 +240,21 @@ const HJ = (() => {
     if (m) return `${m}m ${String(s).padStart(2, "0")}s`;
     return `${s}s`;
   }
+  /** Clock time for a timestamp, in Torn City Time (UTC, 24h) or the user's local time per settings.
+      Adds the date when it isn't today in that zone. */
+  function clock(ms, settings) {
+    const tct = settings.timeDisplay !== "local";
+    const zone = tct ? { timeZone: "UTC" } : {};
+    const day = t => new Date(t).toLocaleDateString("en-CA", zone);
+    const time = new Date(ms).toLocaleTimeString(undefined, { hour: tct ? "2-digit" : "numeric", minute: "2-digit", ...zone, ...(tct ? { hourCycle: "h23" } : {}) });
+    return day(ms) === day(Date.now()) ? time : `${time} ${new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short", ...zone })}`;
+  }
+  /** "TCT", or the local zone's short name such as "EDT". */
+  function zoneLabel(settings) {
+    if (settings.timeDisplay !== "local") return "TCT";
+    const part = new Intl.DateTimeFormat(undefined, { timeZoneName: "short" }).formatToParts(new Date()).find(p => p.type === "timeZoneName");
+    return part ? part.value : "local";
+  }
   const num = (n, d = 0) => Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d });
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -249,7 +265,7 @@ const HJ = (() => {
   }
 
   return { STATS, DEFAULT_SETTINGS, gainPerTrain, simulate, parseGymPerks, gymInfo, multipliers, live,
-    stackTarget, project, msToQuarterTick, dur, num, cap, getAll,
+    stackTarget, project, msToQuarterTick, dur, clock, zoneLabel, num, cap, getAll,
     readAddiction, odChance, lifetimeDrugs, perXanaxEstimate, addictionStatus };
 })();
 if (typeof self !== "undefined") self.HJ = HJ;

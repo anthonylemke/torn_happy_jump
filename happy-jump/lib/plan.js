@@ -136,7 +136,7 @@ const HJP = (() => {
     const stackTarget = boosted ? L.energy : Math.min(1000, Math.max(L.energy, L.energy + xanUse * 250));
     rows.push({ key: "xanax", label: "Xanax", want: xanWant, have: xanHave, use: xanUse, short: xanShort,
       done: stacked, cost: xanShort * priceOf("xanax"), skipped: !!skips.xanax,
-      note: stacked ? `${stacked} in stack` : "" });
+      note: stacked ? `${stacked} taken` : "" });
 
     // Booster room shared by eDVDs, candy and energy drinks
     let room = settings.boosterCapH * 60 - L.boosterLeft / 60;
@@ -161,7 +161,7 @@ const HJP = (() => {
         const n = Math.min(owned[it.name.toLowerCase()], Math.floor(room / it.boosterMin));
         if (n <= 0) continue;
         room -= n * it.boosterMin;
-        used.push({ name: it.name, n, each: it.happy || it.energy });
+        used.push({ name: it.name, n, each: it.happy || it.energy, kind });
         if (kind === "candy") happyGain += n * it.happy; else energyGain += n * it.energy;
       }
       return used;
@@ -273,6 +273,80 @@ const HJP = (() => {
       blocker ? { button: { label: `Proceed without ${blocker.label}`, skip: blocker.key } } : {});
   }
 
+  /** The whole jump as ordered steps: done, todo, partial (fewer than planned) or skip, each with the reason.
+      The first todo or partial step is marked `next`. */
+  function planSteps(ctx) {
+    const { settings, track = {}, skips = {} } = ctx;
+    const plan = buildPlan(ctx);
+    const L = HJ.live(ctx.snap);
+    const row = k => plan.rows.find(r => r.key === k);
+    const boosted = !!track.boostAt;
+    const steps = [];
+    const add = (status, title, detail = "") => steps.push({ status, title, detail });
+    const chosen = "You chose to go without";
+
+    const xan = row("xanax");
+    const xanTotal = Math.max(settings.xanaxCount, plan.stacked);
+    for (let i = 1; i <= xanTotal; i++) {
+      if (i <= plan.stacked) add("done", `Xanax ${i}`, "Taken");
+      else if (boosted) add("skip", `Xanax ${i}`, "Not taken before the jump started");
+      else if (i <= plan.stacked + plan.xanUse) add("todo", `Xanax ${i}`, "+250 energy. Don't spend energy while stacking.");
+      else add("skip", `Xanax ${i}`, skips.xanax ? chosen : `Not in your inventory (you own ${HJ.num(xan.have)}, short ${xan.short})`);
+    }
+    const xanLeft = boosted ? 0 : plan.xanUse;
+
+    if (boosted) {
+      add("done", "Boost", `Happy is at ${HJ.num(L.happy)}`);
+    } else {
+      if (plan.xtcUse) {
+        add(xanLeft || L.drugLeft > 0 ? "todo" : "done", "Drug cooldown clears",
+          xanLeft ? "Ecstasy needs it clear, so wait after your last Xanax" : L.drugLeft > 0 ? `${HJ.dur(L.drugLeft)} left` : "Clear for Ecstasy");
+      }
+      add("todo", "Wait for a quarter tick", "Boost right after one so the extra happy lasts the full 15 minutes");
+
+      const dvd = row("edvd");
+      if (settings.edvdCount > 0) {
+        // Only name the limits that actually cut the count.
+        const why = [];
+        const room = dvd.note ? Number((dvd.note.match(/\d+/) || [])[0]) : Infinity;
+        if (dvd.have !== null && dvd.have < settings.edvdCount && dvd.have <= room) why.push(`you own ${dvd.have}`);
+        if (room < settings.edvdCount && room <= (dvd.have ?? Infinity)) why.push(`booster cooldown has ${dvd.note}`);
+        if (dvd.skipped) add("skip", "eDVDs", chosen);
+        else if (!dvd.use) add("skip", "eDVDs", why.length ? `None: ${why.join(", ")}` : "None fit");
+        else add(dvd.use < settings.edvdCount ? "partial" : "todo", `${dvd.use}${dvd.use < settings.edvdCount ? ` of ${settings.edvdCount}` : ""} eDVDs`,
+          `+${HJ.num(dvd.use * 2500)} happy${why.length ? `. Fewer because ${why.join(" and ")}` : ""}`);
+      }
+      const uses = kind => plan.boosterUses.filter(b => b.kind === kind);
+      for (const b of uses("candy")) add("todo", `${b.n}× ${b.name}`, `+${HJ.num(b.n * b.each)} happy`);
+      const candy = row("candy");
+      if (settings.useCandy && candy && !uses("candy").length) add("skip", "Candy", skips.candy ? chosen : "None you own fits the booster cooldown room left");
+      for (const b of uses("energy")) add("todo", `${b.n}× ${b.name}`, `+${HJ.num(b.n * b.each)} energy`);
+    }
+
+    if (settings.useEcstasy) {
+      const xtc = row("ecstasy");
+      if (track.ecstasyAt) add("done", "Ecstasy", "Taken");
+      else if (skips.ecstasy) add("skip", "Ecstasy", chosen);
+      else if (!plan.xtcUse) add("skip", "Ecstasy", "Not in your inventory");
+      else if (boosted && L.drugLeft > 0) add("skip", "Ecstasy", `Drug cooldown has ${HJ.dur(L.drugLeft)} left, so it can't be taken in time`);
+      else add("todo", "Take Ecstasy", `Doubles your happy${xtc.have === null ? "" : ` (you own ${xtc.have})`}`);
+    }
+    if (settings.useRefill) {
+      const refill = row("refill");
+      if (plan.refillDone) add("done", "Energy refill", "Used");
+      else if (skips.refill) add("skip", "Energy refill", chosen);
+      else if (!plan.refillUse) add("skip", "Energy refill", refill.note === "used today" ? "Already used today" : refill.note ? `Not enough points (${refill.note})` : "Not available");
+      else add("todo", "Use your energy refill", `+${HJ.num(L.maxEnergy)} energy`);
+    }
+
+    const best = HJ.project(ctx.snap, ctx.gymsCache, settings, plan.happy, plan.energy).best;
+    add("todo", "Train", `${HJ.num(plan.energy)} energy at ${HJ.num(plan.happy)} happy${best ? ` in ${HJ.cap(best.stat)}, about +${HJ.num(best.total)}` : ""}. Finish before the next tick.`);
+
+    const next = steps.find(s => s.status === "todo" || s.status === "partial");
+    if (next) next.next = true;
+    return { steps, plan, best };
+  }
+
   /** Plan, addiction status (sized to the Xanax this plan still uses) and current step together. */
   function fullState(base, addictLearn) {
     const pre = buildPlan(base);
@@ -280,6 +354,6 @@ const HJP = (() => {
     return { ad, js: jumpState({ ...base, addictStatus: ad }) };
   }
 
-  return { reduceCatalog, extractInventory, buildPlan, jumpState, fullState, classify, LOG_GAIN, LOG_LOSE, logDelta };
+  return { reduceCatalog, extractInventory, buildPlan, jumpState, fullState, planSteps, classify, LOG_GAIN, LOG_LOSE, logDelta };
 })();
 if (typeof self !== "undefined") self.HJP = HJP;

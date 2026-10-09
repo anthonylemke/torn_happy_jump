@@ -90,6 +90,7 @@ function render() {
   $("planNote").textContent = notes.join(" ");
 
   renderRisk(ad);
+  if (document.body.classList.contains("plan-mode")) renderSteps();
   $("pause").textContent = settings.paused ? "Resume tracking" : "Pause tracking";
   $("resetSkips").hidden = !Object.keys(state.skips || {}).length;
 }
@@ -200,6 +201,81 @@ $("resetSkips").onclick = async () => {
   await chrome.storage.local.set({ skips: {} });
   chrome.runtime.sendMessage({ type: "refresh" });
 };
+/** The current step and plan as plain text. Cooldowns are clock times (TCT or local, per settings), since pasted text can't count down. */
+function planText() {
+  const { settings, snapshot } = state;
+  const { js, ad } = HJP.fullState({ snap: snapshot, settings, inv: state.inventory, catalog: state.catalog,
+    skips: state.skips || {}, track: state.jumpTrack || {}, gymsCache: state.gymsCache }, state.addictLearn);
+  const plan = js.plan;
+  const L = HJ.live(snapshot);
+  const at = secs => HJ.clock(Date.now() + secs * 1000, settings);
+  const lines = [
+    `Happy jump · ${L.name} · ${at(0)} ${HJ.zoneLabel(settings)}`,
+    js.title,
+    js.action,
+    `Drug ${L.drugLeft > 0 ? `ready ${at(L.drugLeft)}` : "clear"} · Booster ${L.boosterLeft > 0 ? `ready ${at(L.boosterLeft)}` : "clear"} · Refill ${L.refillUsed ? "used" : "ready"}`,
+    `Happy ${HJ.num(L.happy)}/${HJ.num(L.maxHappy)} · Energy ${HJ.num(L.energy)}/${HJ.num(plan.stackTarget)}`,
+    ""
+  ];
+  for (const r of plan.rows) {
+    if (!r.want && !r.use && !r.skipped && r.key !== "candy") continue;
+    const parts = r.skipped ? ["skipped"] : [`use ${r.use || 0}`];
+    if (!r.skipped && r.have !== null && r.have !== undefined) parts.push(`own ${HJ.num(r.have)}`);
+    if (!r.skipped && r.short > 0) parts.push(r.noBuy ? "unavailable" : `short ${r.short}`);
+    lines.push(`${r.label}: ${parts.join(", ")}${r.note ? ` (${r.note})` : ""}`);
+  }
+  const best = HJ.project(snapshot, state.gymsCache, settings, plan.happy, plan.energy).best;
+  lines.push("", `Jump: ${HJ.num(plan.happy)} happy · ${HJ.num(plan.energy)} energy${best ? ` → ${HJ.cap(best.stat)} +${HJ.num(best.total)}` : ""}`);
+  if (plan.missingCost > 0) lines.push(`Missing items cost ~$${HJ.num(plan.missingCost)}`);
+  if (ad.pct !== null) lines.push(`Addiction ${ad.pct}% · OD risk ${(ad.odStack * 100).toFixed(1)}%`);
+  return lines.join("\n");
+}
+$("copyPlan").onclick = async () => {
+  const b = $("copyPlan");
+  if (!state || !state.snapshot) return;
+  try { await navigator.clipboard.writeText(planText()); b.textContent = "Copied ✓"; }
+  catch (e) { b.textContent = "Couldn't copy"; HJLog.error("popup", `Copy plan failed: ${e.message}`); }
+  setTimeout(() => { b.textContent = "Copy plan"; }, 2000);
+};
+const STEP_MARK = { done: "✓", todo: "○", partial: "◐", skip: "✕" };
+const STEP_LABEL = { done: "Done", todo: "To do", partial: "Fewer than planned", skip: "Dropped" };
+function renderSteps() {
+  const { settings, snapshot } = state;
+  const { steps, plan } = HJP.planSteps({ snap: snapshot, settings, inv: state.inventory, catalog: state.catalog,
+    skips: state.skips || {}, track: state.jumpTrack || {}, gymsCache: state.gymsCache });
+  const ol = $("steps");
+  ol.textContent = "";
+  for (const s of steps) {
+    const li = document.createElement("li");
+    li.dataset.status = s.status;
+    if (s.next) li.dataset.next = "";
+    const mark = Object.assign(document.createElement("span"), { className: "mark", textContent: s.next ? "▶" : STEP_MARK[s.status] });
+    mark.title = s.next ? "Next" : STEP_LABEL[s.status];
+    const body = document.createElement("div");
+    body.append(Object.assign(document.createElement("b"), { textContent: s.title }));
+    if (s.detail) body.append(Object.assign(document.createElement("small"), { textContent: s.detail }));
+    li.append(mark, body);
+    ol.appendChild(li);
+  }
+  const dropped = steps.filter(s => s.status === "skip" || s.status === "partial").length;
+  $("stepsNote").textContent = [
+    dropped ? `${dropped} step${dropped === 1 ? " is" : "s are"} reduced or dropped for what you have. Use Skip/Undo on the main view to change that.` : "",
+    plan.missingCost > 0 ? `Buying the missing items costs ~$${HJ.num(plan.missingCost)}.` : ""
+  ].filter(Boolean).join(" ");
+}
+
+function setPlanMode(on) {
+  document.body.classList.toggle("plan-mode", on);
+  const b = $("viewPlan");
+  b.setAttribute("aria-pressed", String(on));
+  b.title = on ? "Back to current status" : "Show plan steps";
+  b.setAttribute("aria-label", b.title);
+  try { localStorage.setItem("hjPlanMode", on ? "1" : ""); } catch (e) { /* storage unavailable: just don't remember */ }
+  if (state && state.snapshot && state.settings.apiKey) render();
+}
+$("viewPlan").onclick = () => setPlanMode(!document.body.classList.contains("plan-mode"));
+try { if (localStorage.getItem("hjPlanMode")) setPlanMode(true); } catch (e) { /* ignore */ }
+
 // Storage changes (new data, skips, settings) re-render; the timer keeps countdowns live.
 chrome.storage.onChanged.addListener(changes => {
   if (Object.keys(changes).every(k => ["addictNotify", "lastStageKey", "devLog"].includes(k))) return;
