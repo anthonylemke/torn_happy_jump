@@ -10,7 +10,7 @@ A Chrome / Edge / Brave extension that reads your Torn API data and tells you wh
 5. Pin the extension and click its icon to open the popup.
 
 ## How it works
-- **It knows where you are.** From your energy, happy, drug and booster cooldowns, refill status and recent changes, it detects each step: not stacking yet (no alerts until your first Xanax), stacking Xanax, waiting on the drug cooldown, ready to boost, Ecstasy, refill, training, and done. There's no checklist to tick.
+- **It knows where you are.** From your energy, happy, drug and booster cooldowns, refill status and recent changes, it detects each step: not stacking yet (no alerts until your first Xanax), stacking Xanax, waiting on the drug cooldown, ready to boost, Ecstasy, training the stack down, your energy refill (only once you're out, since it fills to max rather than adding), training again, and done. There's no checklist to tick.
 - **It plans with your inventory.** It reads your items (Xanax, eDVDs, Ecstasy, candy, energy drinks), your points and your cash. The plan uses what you own and fits boosters into your remaining booster cooldown room.
 - **Short on something?** Each missing item shows how many you need and roughly what it costs at market value. Press **Skip** (or **Proceed without** on the current step) and the plan rebuilds around what you have, for example a candy-only jump, no Ecstasy, or a smaller stack. Skips reset automatically after each jump.
 - **Alerts:** a notification whenever your next step changes (time for a Xanax, stack complete, ready to jump, blocked, rehab first). The icon badge only appears when a step is due: `XAN`, `RDY`, `GO`, `!` (blocked) or `RHB`.

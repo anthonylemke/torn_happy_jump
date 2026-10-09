@@ -222,13 +222,15 @@ const HJP = (() => {
 
     if (settings.paused) return S("paused", "Tracking paused", "Resume when you want to plan a jump.");
 
+    const refillLeft = plan.refillUse && !plan.refillDone;
     if (track.boostAt) {
       if (plan.xtcUse && !track.ecstasyAt) {
         if (L.drugLeft > 0) return S("train", "Ecstasy is blocked", `Your drug cooldown has ${HJ.dur(L.drugLeft)} left, so Ecstasy can't be taken in time. Train now before the tick in ${tick}.`, { urgent: true });
-        return S("ecstasy", "Take Ecstasy now", `It doubles your current happy. Then ${plan.refillUse && !plan.refillDone ? "refill energy and " : ""}train. Tick in ${tick}.`, { urgent: true });
+        return S("ecstasy", "Take Ecstasy now", `It doubles your current happy. Then train${refillLeft ? " down to zero" : ""}. Tick in ${tick}.`, { urgent: true });
       }
-      if (plan.refillUse && !plan.refillDone) return S("refill", "Use your energy refill", `Then train everything. Tick in ${tick}.`, { urgent: true });
-      if (L.energy >= gym.energy) return S("train", "Train now", `Spend all ${HJ.num(L.energy)} energy before the tick in ${tick}.`, { urgent: true });
+      // A refill fills the bar to max instead of adding to it, so it only comes once the stack is trained down.
+      if (L.energy >= gym.energy) return S("train", "Train now", `Spend all ${HJ.num(L.energy)} energy before the tick in ${tick}.${refillLeft ? " Then use your energy refill and train again." : ""}`, { urgent: true });
+      if (refillLeft) return S("refill", "Use your energy refill", `You're out of energy, so it fills you back to ${HJ.num(L.maxEnergy)}. Then train again before the tick in ${tick}.`, { urgent: true });
       return S("done", "Jump done", "You're out of energy. Nice work.");
     }
 
@@ -263,8 +265,8 @@ const HJP = (() => {
     const steps = [];
     if (boostList) steps.push(`use ${boostList}`);
     if (plan.xtcUse) steps.push("take Ecstasy");
-    if (plan.refillUse) steps.push("refill energy");
-    steps.push("train everything");
+    if (plan.refillUse) steps.push("train down to zero", "use your energy refill", "train again");
+    else steps.push("train everything");
     const blocker = plan.shortages.find(r => r.key === "edvd" || r.key === "ecstasy");
     if (!boostList && !plan.xtcUse) {
       return S("ready", "Ready to train", `Nothing to boost happy with, so this is a normal train at ${HJ.num(L.happy)} happy. ${steps.join(", then ")}.`);
@@ -331,16 +333,27 @@ const HJP = (() => {
       else if (boosted && L.drugLeft > 0) add("skip", "Ecstasy", `Drug cooldown has ${HJ.dur(L.drugLeft)} left, so it can't be taken in time`);
       else add("todo", "Take Ecstasy", `Doubles your happy${xtc.have === null ? "" : ` (you own ${xtc.have})`}`);
     }
-    if (settings.useRefill) {
-      const refill = row("refill");
-      if (plan.refillDone) add("done", "Energy refill", "Used");
-      else if (skips.refill) add("skip", "Energy refill", chosen);
-      else if (!plan.refillUse) add("skip", "Energy refill", refill.note === "used today" ? "Already used today" : refill.note ? `Not enough points (${refill.note})` : "Not available");
-      else add("todo", "Use your energy refill", `+${HJ.num(L.maxEnergy)} energy`);
-    }
-
+    // A refill fills the bar to max instead of adding to it, so it sits between training the stack down and training again.
     const best = HJ.project(ctx.snap, ctx.gymsCache, settings, plan.happy, plan.energy).best;
-    add("todo", "Train", `${HJ.num(plan.energy)} energy at ${HJ.num(plan.happy)} happy${best ? ` in ${HJ.cap(best.stat)}, about +${HJ.num(best.total)}` : ""}. Finish before the next tick.`);
+    const gain = best ? ` in ${HJ.cap(best.stat)}, about +${HJ.num(best.total)} ${boosted ? "from the energy left" : "for the whole jump"}` : "";
+    const trainCost = HJ.gymInfo(ctx.snap, ctx.gymsCache, settings).energy;
+    if (plan.refillDone) {
+      add("done", "Train down to zero", "Stack spent");
+      add("done", "Energy refill", "Used");
+      add("todo", "Train again", `${HJ.num(L.energy)} energy${gain}. Finish before the next tick.`);
+    } else if (plan.refillUse) {
+      const spent = boosted && L.energy < trainCost;
+      add(spent ? "done" : "todo", "Train down to zero", spent ? "Stack spent"
+        : `${HJ.num(plan.energy - L.maxEnergy)} energy at ${HJ.num(plan.happy)} happy. The refill fills you to max rather than adding, so use it only once you're out.`);
+      add("todo", "Use your energy refill", `Fills you back to ${HJ.num(L.maxEnergy)} energy`);
+      add("todo", "Train again", `${HJ.num(L.maxEnergy)} energy${gain}. Finish before the next tick.`);
+    } else {
+      add("todo", "Train", `${HJ.num(plan.energy)} energy at ${HJ.num(plan.happy)} happy${gain}. Finish before the next tick.`);
+      if (settings.useRefill) {
+        const refill = row("refill");
+        add("skip", "Energy refill", skips.refill ? chosen : refill.note === "used today" ? "Already used today" : refill.note ? `Not enough points (${refill.note})` : "Not available");
+      }
+    }
 
     const next = steps.find(s => s.status === "todo" || s.status === "partial");
     if (next) next.next = true;

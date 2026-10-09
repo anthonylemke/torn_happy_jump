@@ -274,8 +274,10 @@ async function doRefresh(force) {
     const snapshot = { at: Date.now(), user, addict };
     updates.snapshot = snapshot;
     updates.lastError = null;
+    const points = addict.money ? Number(addict.money.points) : NaN;
+    const refillPending = settings.useRefill && !(st.skips || {}).refill && !user.energy_refill_used && !(points < settings.refillPointCost);
     const { jumpTrack, clearSkips } = updateTrack(st.jumpTrack, prev, snapshot,
-      HJ.gymInfo(snapshot, updates.gymsCache || gymsCache, settings).energy);
+      HJ.gymInfo(snapshot, updates.gymsCache || gymsCache, settings).energy, refillPending);
     updates.jumpTrack = jumpTrack;
     if (clearSkips) updates.skips = {};
     await chrome.storage.local.set(updates);
@@ -295,7 +297,7 @@ async function doRefresh(force) {
 }
 
 /** Follow the jump from snapshot to snapshot: Xanax taken, boost start, Ecstasy, end. */
-function updateTrack(track, prevSnap, snap, trainCost) {
+function updateTrack(track, prevSnap, snap, trainCost, refillPending) {
   const t = { stackXans: 0, ...(track || {}) };
   const L = HJ.live(snap);
   let clearSkips = false;
@@ -328,10 +330,10 @@ function updateTrack(track, prevSnap, snap, trainCost) {
     if (drugEnd > (t.drugEndAtBoost || 0) + 60000) { t.ecstasyAt = Date.now(); HJLog.info("track", "Ecstasy detected from new drug cooldown during boost"); }
   }
   // Happy can dip below max mid-train on a small boost, so the jump only ends once energy is
-  // spent or a quarter tick has reset happy since the boost started.
+  // spent (and any planned refill used and spent too) or a quarter tick has reset happy since the boost started.
   const q = 15 * 60 * 1000;
   const tickPassed = t.boostAt && Math.floor(t.boostAt / q) < Math.floor(snap.at / q);
-  if (t.boostAt && L.happy <= L.maxHappy && (L.energy < trainCost || tickPassed)) {
+  if (t.boostAt && L.happy <= L.maxHappy && ((L.energy < trainCost && !refillPending) || tickPassed)) {
     const total = Object.values(L.stats).reduce((a, b) => a + b, 0);
     t.lastJump = { endedAt: Date.now(), gained: total - (t.statsAtBoost || total) };
     HJLog.info("track", `Jump ended: +${t.lastJump.gained} total stats`);
